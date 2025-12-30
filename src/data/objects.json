@@ -1,0 +1,26 @@
+{
+    "path_stone_walkway_floor": {
+        "name": "Stone Walkway Floor",
+        "category": "paths",
+        "spriteType": "atlas",
+        "sprite": "assets/objects/decor/pathway_atlas_0.png",
+        "atlasCoord": { "x": 0, "y": 0 },
+        "tileWidth": 16,
+        "tileHeight": 16,
+        "footprintWidth": 1,
+        "footprintHeight": 1,
+        "defaultLayer": 2,
+        "placeableIndoors": true
+    },
+    "building_shed": {
+        "name": "Shed",
+        "category": "buildings",
+        "spriteType": "single",
+        "sprite": "assets/objects/buildings/shed.png",
+        "footprintWidth": 7,
+        "footprintHeight": 3,
+        "defaultLayer": 3,
+        "canEnter": true,
+        "supportsFlooring": false
+    }
+}

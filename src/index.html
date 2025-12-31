@@ -9,24 +9,26 @@
     </style>
 </head>
 <body>
-    <canvas id="layer-0"></canvas> <!-- Terrain -->
-    <canvas id="layer-1"></canvas> <!-- Walls/Floors -->
-    <canvas id="layer-2"></canvas> <!-- Paths -->
-    <canvas id="layer-3"></canvas> <!-- Objects (Interactive) -->
-    <canvas id="layer-4"></canvas> <!-- Grid/Overlay -->
+    <canvas id="layer-0"></canvas>
+    <canvas id="layer-1"></canvas>
+    <canvas id="layer-2"></canvas>
+    <canvas id="layer-3"></canvas>
+    <canvas id="layer-4"></canvas>
 
-    <!-- Load core modules -->
+    <!-- Load in dependency order -->
+    <script src="core/appState.js"></script>
     <script src="core/constants.js" type="module"></script>
-    <script src="core/appState.js" type="module"></script>
+    <script src="core/locationManager.js" type="module"></script>
+    <script src="core/assetLoader.js" type="module"></script>
+    <script src="core/renderHelpers.js" type="module"></script>
     <script src="core/renderEngine.js" type="module"></script>
 
     <script>
-        // After loading all modules
         document.addEventListener('DOMContentLoaded', function() {
             if (window.renderEngine && window.renderEngine.init) {
                 window.renderEngine.init();
             } else {
-                console.error('Render engine not loaded properly');
+                console.error('Render engine not found');
             }
         });
     </script>

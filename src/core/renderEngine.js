@@ -1,145 +1,195 @@
-import { TILE_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, LAYERS } from "./constants.js";
+import { TILE_SIZE } from "./constants.js";
+import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
+import { loadSprite, fetchObjectDefinition } from './assetLoader.js';
+import { ySortPlacements, gridToPixel } from './renderHelpers.js';
 
+// Canvas state - keep these private to this module
 const canvases = {};
 const ctx = {};
-let fabricCanvas = null; // For the interactive layer (OBJECTS)
+let fabricCanvas = null;
 
-// --- Initialisation ---
+//Initialize all canvas layers
 function initCanvases() {
-    // Layer IDs matching your HTML and the order in LAYERS constant
+    const location = getCurrentLocation();
+    if (!location) throw new Error("No location set");
+    
     const layerIds = ["layer-0", "layer-1", "layer-2", "layer-3", "layer-4"];
     const layerNames = ["terrain", "walls", "paths", "objects", "overlay"];
 
-    // Initialize standard canvas layers (0, 1, 2, 4)
     for (let i = 0; i < layerIds.length; i++) {
-        const id = layerIds[i];
-        const name = layerNames[i];
-
-        // Get the canvas element from the DOM
-        const canvasElement = document.getElementById(id);
-        if (!canvasElement) {
-            console.error(`Canvas element #${id} not found!`);
-            continue; // Skip this canvas
+        const canvas = document.getElementById(layerIds[i]);
+        if (!canvas) {
+            console.error(`Canvas #${layerIds[i]} not found`);
+            continue;
         }
 
-        // Store the element reference
-        canvases[name] = canvasElement;
+        canvases[layerNames[i]] = canvas;
+        canvas.width = location.pixelWidth;
+        canvas.height = location.pixelHeight;
 
-        // Set the canvas dimensions (makes drawing area match our game world)
-        canvasElement.width = CANVAS_WIDTH;
-        canvasElement.height = CANVAS_HEIGHT;
-
-        // For layer-3 use Fabric.js
-        if (id !== "layer-3") {
-            // Get the 2D drawing context for native canvas operations
-            const context = canvasElement.getContext("2d");
+        if (layerIds[i] !== "layer-3") {
+            const context = canvas.getContext("2d");
             if (!context) {
-                console.error(`Could not get 2D context for #${id}`);
+                console.error(`Context for #${layerIds[i]} not available`);
                 continue;
             }
-
-            // Store the context reference for drawing functions
-            ctx[name] = context;
-
-            context.imageSmoothingEnabled = false; // For pixel art
+            ctx[layerNames[i]] = context;
+            context.imageSmoothingEnabled = false;
         }
-
-        console.log(`Initialized ${name} layer: ${id}`);
     }
 
-    // Initialize Fabric.js for the interactive objects layer (layer-3)
-    const interactiveCanvas = canvases.objects;
-    if (interactiveCanvas) {
-        // Create Fabric.js canvas wrapper
+    // Initialize Fabric.js for layer-3
+    const objectsCanvas = canvases.objects;
+    if (objectsCanvas) {
         fabricCanvas = new fabric.Canvas("layer-3", {
-            selection: false, // Disable default selection boxes
-            preserveObjectStacking: true, // Crucial for correct object layering
-            hoverCursor: "grab", // Cursor when hovering over objects
-            moveCursor: "grabbing", // Cursor when dragging objects
-            backgroundColor: "transparent", // Let lower layers show through
+            selection: false,
+            preserveObjectStacking: true,
+            hoverCursor: "grab",
+            backgroundColor: "transparent",
         });
-
-        // Set Fabric canvas dimensions (Fabric manages its own internal dimensions)
-        fabricCanvas.setWidth(CANVAS_WIDTH);
-        fabricCanvas.setHeight(CANVAS_HEIGHT);
-
-        // Disable right-click context menu on this canvas
-        fabricCanvas.upperCanvasEl.oncontextmenu = function (e) {
-            e.preventDefault();
-            return false;
-        };
-
-        console.log("Initialized Fabric.js canvas for interactive objects");
-    } else {
-        console.error(
-            "Could not find interactive canvas element for Fabric.js"
-        );
+        fabricCanvas.setWidth(location.pixelWidth);
+        fabricCanvas.setHeight(location.pixelHeight);
+        fabricCanvas.upperCanvasEl.oncontextmenu = (e) => e.preventDefault();
+        console.log("Fabric.js initialized");
     }
 
-    console.log("All canvases initialized successfully");
-    console.log("Canvas dimensions:", CANVAS_WIDTH, "x", CANVAS_HEIGHT);
-    console.log("Tile size:", TILE_SIZE, "pixels");
+    console.log(`Canvases: ${location.pixelWidth}x${location.pixelHeight}px`);
 }
 
-// --- Rendering Functions ---
-function drawBackground() {
-    // TODO: Load and draw 'assets/locations/farm_standard.png' on layer-0
-    console.log("Drawing background");
-}
+// Draw background image
+async function drawBackground() {
+    const location = getCurrentLocation();
+    const terrainCtx = ctx.terrain;
+    if (!terrainCtx || !location) return;
 
-function drawGrid() {
-    // TODO: Draw a crisp 16x16 grid on the OVERLAY layer (layer-4)
-    // Remember: Use x + 0.5, y + 0.5 for sharp lines!
-    console.log("Drawing grid");
-}
-
-// Helper function for Y-sorting (CRITICAL for visual layering)
-function ySortPlacements(placementsArray) {
-    // Sorts by gridY so objects higher on screen (lower gridY) draw first.
-    return [...placementsArray].sort((a, b) => a.gridY - b.gridY);
-}
-
-function drawAllObjects() {
-    if (!fabricCanvas) return;
-    fabricCanvas.clear();
-
-    // Get current location's placements
-    const currentLocation = appState.modifiedLocations.find(
-        (loc) => loc.locationKey === appState.currentView.locationKey
-    );
-    if (!currentLocation) return;
-
-    // Combine placements
-    let allPlacements = [...currentLocation.directPlacements]; // incomplete
-
-    // Y-sort for correct visual order
-    const sortedPlacements = ySortPlacements(allPlacements);
-
-    // Draw each placement
-    sortedPlacements.forEach((placement) => {
-        console.log(
-            "Should draw:",
-            placement.objectKey,
-            "at grid [",
-            placement.gridX,
-            ",",
-            placement.gridY,
-            "]" // incomplete
-        );
-        // TODO: Fetch object definition from objects.json
-        // TODO: Calculate pixel position
-        // TODO: Draw sprite based on spriteType ('single' or 'atlas')
+    terrainCtx.clearRect(0, 0, location.pixelWidth, location.pixelHeight);
+    
+    const bgImage = new Image();
+    bgImage.src = location.backgroundSprites[0]; // Spring season
+    
+    await new Promise((resolve) => {
+        bgImage.onload = () => {
+            terrainCtx.drawImage(bgImage, 0, 0, location.pixelWidth, location.pixelHeight);
+            resolve();
+        };
+        bgImage.onerror = () => {
+            console.error("Background failed to load");
+            resolve();
+        };
     });
 }
 
-// --- Public API ---
-function init() {
-    console.log("Initializing Render Engine");
-    initCanvases();
-    drawBackground();
-    drawGrid();
-    drawAllObjects();
+//Draw grid overlay
+function drawGrid() {
+    const location = getCurrentLocation();
+    const gridCtx = ctx.overlay;
+    if (!gridCtx || !location) return;
+
+    gridCtx.clearRect(0, 0, location.pixelWidth, location.pixelHeight);
+    gridCtx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    gridCtx.lineWidth = 1;
+    gridCtx.beginPath();
+
+    for (let x = 0; x <= location.pixelWidth; x += TILE_SIZE) {
+        gridCtx.moveTo(x + 0.5, 0);
+        gridCtx.lineTo(x + 0.5, location.pixelHeight);
+    }
+    for (let y = 0; y <= location.pixelHeight; y += TILE_SIZE) {
+        gridCtx.moveTo(0, y + 0.5);
+        gridCtx.lineTo(location.pixelWidth, y + 0.5);
+    }
+
+    gridCtx.stroke();
 }
 
-// Expose to window for index.html to call
+// Draw a single object
+async function drawSingleObject(placement) {
+    const location = getCurrentLocation();
+    if (!location) return;
+
+    const objectDef = await fetchObjectDefinition(placement.objectKey);
+    if (!objectDef) return;
+
+    const spriteImg = await loadSprite(objectDef.sprite);
+    const { pixelX, pixelY } = gridToPixel(placement.gridX, placement.gridY);
+
+    if (placement.layer === 2 && ctx.paths) {
+        // Draw path on native canvas
+        if (objectDef.spriteType === 'atlas') {
+            ctx.paths.drawImage(
+                spriteImg,
+                objectDef.atlasCoord.x, objectDef.atlasCoord.y,
+                TILE_SIZE, TILE_SIZE,
+                pixelX, pixelY,
+                TILE_SIZE * objectDef.footprintWidth,
+                TILE_SIZE * objectDef.footprintHeight
+            );
+        } else {
+            ctx.paths.drawImage(spriteImg, pixelX, pixelY);
+        }
+    } else if (placement.layer === 3 && fabricCanvas) {
+        // Draw object on Fabric.js canvas
+        const fabricObj = new fabric.Rect({
+            left: pixelX,
+            top: pixelY,
+            width: TILE_SIZE * objectDef.footprintWidth,
+            height: TILE_SIZE * objectDef.footprintHeight,
+            fill: 'rgba(70, 130, 180, 0.7)',
+            stroke: 'rgba(255, 255, 255, 0.5)',
+            strokeWidth: 1,
+            selectable: true,
+            hasControls: false,
+            data: { id: placement.id, objectKey: placement.objectKey }
+        });
+        fabricCanvas.add(fabricObj);
+    }
+}
+
+// Draw all objects
+async function drawAllObjects() {
+    const location = getCurrentLocation();
+    if (!location) return;
+
+    // Get current location's placements
+    const currentLocationData = window.appState.modifiedLocations.find(
+        loc => loc.locationKey === window.appState.currentView.locationKey
+    );
+    
+    if (!currentLocationData || !currentLocationData.directPlacements.length) {
+        console.log("No placements to draw");
+        return;
+    }
+
+    // Clear previous drawings
+    if (ctx.paths) ctx.paths.clearRect(0, 0, location.pixelWidth, location.pixelHeight);
+    if (fabricCanvas) fabricCanvas.clear();
+
+    // Draw each placement
+    const sorted = ySortPlacements(currentLocationData.directPlacements);
+    for (const placement of sorted) {
+        try {
+            await drawSingleObject(placement);
+        } catch (error) {
+            console.error(`Failed to draw ${placement.objectKey}:`, error);
+        }
+    }
+}
+
+// Main initialization
+async function init() {
+    console.log("Initializing render engine...");
+    try {
+        await loadLocations();
+        setCurrentLocation('farm');
+        initCanvases();
+        await drawBackground();
+        drawGrid();
+        await drawAllObjects();
+        console.log("Render engine ready!");
+    } catch (error) {
+        console.error("Render engine failed:", error);
+    }
+}
+
+// Expose to window
 window.renderEngine = { init };

@@ -1,0 +1,24 @@
+{
+    "farm": {
+        "name": "Standard Farm",
+        "gridWidth": 80,
+        "gridHeight": 65,
+        "backgroundSprites": [
+            "assets/locations/farm_0.png",
+            "assets/locations/farm_1.png",
+            "assets/locations/farm_2.png",
+            "assets/locations/farm_3.png"
+        ]
+    },
+    "town": {
+        "name": "Pelican Town CHECK THE DIMS!",
+        "gridWidth": 1000, 
+        "gridHeight": 900000,
+        "backgroundSprite": [
+            "assets/locations/town_0.png",
+            "assets/locations/town_1.png",
+            "assets/locations/town_2.png",
+            "assets/locations/town_3.png"
+        ]
+    }
+}

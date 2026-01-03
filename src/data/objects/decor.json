@@ -3,7 +3,7 @@
         "name": "Stone Walkway Floor",
         "category": "paths",
         "spriteType": "atlas",
-        "sprite": "assets/objects/machines/path_atlas_0.png",
+        "sprite": "assets/objects/decor/path_atlas_0.png",
         "atlasCoord": { "x": 0, "y": 192 },
         "tileWidth": 16,
         "tileHeight": 16,
@@ -16,7 +16,7 @@
         "name": "Wooden Floor",
         "category": "paths",
         "spriteType": "atlas",
-        "sprite": "assets/objects/machines/path_atlas_0.png",
+        "sprite": "assets/objects/decor/path_atlas_0.png",
         "atlasCoord": { "x": 0, "y": 0 },
         "tileWidth": 16,
         "tileHeight": 16,
@@ -24,15 +24,5 @@
         "footprintHeight": 1,
         "defaultLayer": 2,
         "placeableIndoors": true
-    },
-    "building_shed": {
-        "name": "Shed",
-        "category": "buildings",
-        "spriteType": "single",
-        "sprite": "assets/objects/buildings/shed_0.png",
-        "footprintWidth": 7,
-        "footprintHeight": 3,
-        "defaultLayer": 3,
-        "canEnter": true
     }
 }

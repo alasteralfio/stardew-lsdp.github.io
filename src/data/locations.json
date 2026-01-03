@@ -9,20 +9,27 @@
             "assets/locations/farm_2.png",
             "assets/locations/farm_3.png"
         ],
-        "blockedTiles": [
-            [10, 10], [11, 10], [12, 10],
-            [5, 5], [5, 6], [60, 61]
-        ]
+        "blockedAreas": [
+            {"x": 10, "y": 10, "width": 3, "height": 1},
+            {"x": 5, "y": 5, "width": 1, "height": 2}
+        ],
+        "canPlaceWalls": false,
+        "indoors": false
     },
-    "town": {
-        "name": "Pelican Town CHECK THE DIMS!",
-        "gridWidth": 1000, 
-        "gridHeight": 900000,
-        "backgroundSprite": [
-            "assets/locations/town_0.png",
-            "assets/locations/town_1.png",
-            "assets/locations/town_2.png",
-            "assets/locations/town_3.png"
-        ]
+    "Shed": {
+        "name": "Standard Farm",
+        "gridWidth": 13,
+        "gridHeight": 14,
+        "backgroundSprites": [
+            "assets/locations/location_shed_0.png"
+        ],
+        "blockedAreas": [
+            {"x": 0, "y": 0, "width": 13, "height": 4},
+            {"x": 0, "y": 4, "width": 1, "height": 9},
+            {"x": 12, "y": 4, "width": 1, "height": 9},
+            {"x": 0, "y": 13, "width": 13, "height": 1}
+        ],
+        "canPlaceWalls": true,
+        "indoors": true
     }
 }

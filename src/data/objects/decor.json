@@ -1,5 +1,5 @@
 {
-    "path_stone_walkway_floor": {
+    "stone_walkway_floor": {
         "name": "Stone Walkway Floor",
         "category": "paths",
         "spriteType": "atlas",
@@ -10,9 +10,10 @@
         "footprintWidth": 1,
         "footprintHeight": 1,
         "defaultLayer": 2,
-        "placeableIndoors": true
+        "placeableIndoors": true,
+        "canEnter": true
     },
-    "path_wooden_floor": {
+    "wooden_floor": {
         "name": "Wooden Floor",
         "category": "paths",
         "spriteType": "atlas",
@@ -23,6 +24,7 @@
         "footprintWidth": 1,
         "footprintHeight": 1,
         "defaultLayer": 2,
-        "placeableIndoors": true
+        "placeableIndoors": true,
+        "canEnter": true
     }
 }

@@ -16,14 +16,14 @@ const appState = {
             directPlacements: [
                 {
                     id: "plc_1",
-                    objectKey: "path_stone_walkway_floor",
+                    objectKey: "stone_walkway_floor",
                     gridX: 60,
                     gridY: 60,
                     layer: 2,
                 },
                 {
                     id: "plc_2",
-                    objectKey: "path_wooden_floor",
+                    objectKey: "wooden_floor",
                     gridX: 40,
                     gridY: 40,
                     layer: 2,

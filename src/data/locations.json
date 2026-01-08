@@ -16,8 +16,8 @@
         "canPlaceWalls": false,
         "indoors": false
     },
-    "Shed": {
-        "name": "Standard Farm",
+    "shed": {
+        "name": "Shed",
         "gridWidth": 13,
         "gridHeight": 14,
         "backgroundSprites": [

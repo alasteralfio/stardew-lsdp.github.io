@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Farm Game Prototype</title>
+        <link rel="stylesheet" href="./test.css" />
+        <script>
+            let currentCategory = null;
+            
+            const items = {
+                buildings: ['Building 1', 'Building 2', 'Building 3', 'Building 4', 'Building 5', 'Building 6'],
+                crops: ['Crop 1', 'Crop 2', 'Crop 3', 'Crop 4', 'Crop 5', 'Crop 6'],
+                decor: ['Decor 1', 'Decor 2', 'Decor 3', 'Decor 4', 'Decor 5', 'Decor 6'],
+                machines: ['Machine 1', 'Machine 2', 'Machine 3', 'Machine 4', 'Machine 5', 'Machine 6'],
+                wallpaper: ['Wallpaper 1', 'Wallpaper 2', 'Wallpaper 3', 'Wallpaper 4', 'Wallpaper 5', 'Wallpaper 6'],
+            };
+            
+            function togglePalette(category) {
+                const panel = document.getElementById('palette-panel');
+                const grid = document.getElementById('objects-grid');
+                const search = document.getElementById('search-container');
+                const settings = document.getElementById('settings-panel');
+                
+                if (panel.style.display === 'block' && currentCategory === category) {
+                    panel.style.display = 'none';
+                    currentCategory = null;
+                } else {
+                    panel.style.display = 'block';
+                    currentCategory = category;
+                    
+                    if (category === 'settings') {
+                        search.style.display = 'none';
+                        grid.style.display = 'none';
+                        settings.style.display = 'block';
+                    } else {
+                        search.style.display = 'flex';
+                        grid.style.display = 'grid';
+                        settings.style.display = 'none';
+                        populateGrid(category);
+                    }
+                }
+            }
+            
+            function populateGrid(category) {
+                const grid = document.getElementById('objects-grid');
+                grid.innerHTML = '';
+                items[category].forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'grid-item';
+                    div.textContent = item;
+                    grid.appendChild(div);
+                });
+            }
+            
+            function closePalette() {
+                document.getElementById('palette-panel').style.display = 'none';
+                currentCategory = null;
+            }
+        </script>
+    </head>
+    <body>
+        <div class="app-container">
+            <div class="game-viewport">
+                <!-- Static farm image instead of dynamic canvases -->
+                <img src="./assets/locations/location_farm_0.png" alt="Farm Location" class="static-farm-image" />
+            </div>
+            
+            <div class="ui-overlay">
+                <!-- ALL UI elements go here -->
+                
+                <div id="palette-container">
+                    <!-- Category Toolbar -->
+                    <div id="category-toolbar">
+                        <button class="category-btn" data-category="buildings" title="Buildings" onclick="togglePalette('buildings')">
+                            <div style="background: #666">B</div>
+                        </button>
+                        <button class="category-btn" data-category="crops" title="Crops" onclick="togglePalette('crops')">
+                            <div style="background: #4a752c">C</div>
+                        </button>
+                        <button class="category-btn" data-category="decor" title="Decor" onclick="togglePalette('decor')">
+                            <div style="background: #8b4513">D</div>
+                        </button>
+                        <button class="category-btn" data-category="machines" title="Machines" onclick="togglePalette('machines')">
+                            <div style="background: #708090">M</div>
+                        </button>
+                        <button class="category-btn" data-category="wallpaper" title="Wallpaper" onclick="togglePalette('wallpaper')">
+                            <div style="background: #9370db">W</div>
+                        </button>
+                        <button class="category-btn" data-category="settings" title="Settings" onclick="togglePalette('settings')">
+                            <div style="background: #1abd22">S</div>
+                        </button>
+                    </div>
+
+                    <!-- Expanding Palette Panel (hidden by default) -->
+                    <div id="palette-panel">
+                        <div id="search-container">
+                            <input type="text" id="search-input" placeholder="Search objects..." />
+                        </div>
+                        <div id="objects-grid">
+                            <!-- Placeholder items -->
+                            <div class="grid-item">Item 1</div>
+                            <div class="grid-item">Item 2</div>
+                            <div class="grid-item">Item 3</div>
+                            <div class="grid-item">Item 4</div>
+                            <div class="grid-item">Item 5</div>
+                            <div class="grid-item">Item 6</div>
+                            <div class="grid-item">Item 7</div>
+                            <div class="grid-item">Item 8</div>
+                        </div>
+                        <div id="settings-panel" style="display: none;">
+                            <button>Save Layout</button>
+                            <button>Load Layout</button>
+                            <button>New Layout</button>
+                            <button>Debug State</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="status-bar">
+                    <span id="selected-object">Selected: None</span>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

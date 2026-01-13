@@ -5,6 +5,7 @@ import { ySortPlacements, gridToPixel } from './renderHelpers.js';
 import { initInteractions } from './interactionHandler.js';
 import { initViewportPanning } from './interactionHandler.js';
 import { PaletteController } from '../ui/paletteController.js';
+import { UIController } from './uiController.js';
 
 // Canvas state - keep these private to this module
 const canvases = {};
@@ -255,11 +256,11 @@ async function init() {
             initViewportPanning(viewport);
         }
 
-        // Initialize drag-and-drop interactions for PATHS layer
-        if (canvases.paths) {
-            initInteractions(canvases.paths, window.appState);
+        // Initialize drag-and-drop interactions for overlay layer (top layer)
+        if (canvases.overlay) {
+            initInteractions(canvases.overlay, window.appState);
         } else {
-            console.error('DEBUG: canvases.paths is undefined!');
+            console.error('DEBUG: canvases.overlay is undefined!');
         }
 
         // Listen for placement updates to trigger re-render
@@ -274,6 +275,9 @@ async function init() {
         
         // Initialize palette controller after everything else is ready
         const paletteController = new PaletteController(window.appState);
+        
+        // Initialize UI controller
+        const uiController = new UIController(window.appState);
         
         console.log("Render engine ready!");
     } catch (error) {

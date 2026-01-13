@@ -17,15 +17,22 @@ const appState = {
                 {
                     id: "plc_1",
                     objectKey: "stone_walkway_floor",
-                    gridX: 60,
-                    gridY: 60,
+                    gridX: 10,
+                    gridY: 10,
                     layer: 2,
                 },
                 {
                     id: "plc_2",
                     objectKey: "wooden_floor",
-                    gridX: 40,
-                    gridY: 40,
+                    gridX: 15,
+                    gridY: 15,
+                    layer: 2,
+                },
+                {
+                    id: "plc_3",
+                    objectKey: "stone_walkway_floor",
+                    gridX: 20,
+                    gridY: 20,
                     layer: 2,
                 },
             ],
@@ -34,7 +41,7 @@ const appState = {
 };
 
 // Utility function to generate unique IDs for new placements
-let placementIdCounter = 0;
+let placementIdCounter = 3;
 appState.generatePlacementId = function () {
     return `plc_${Date.now()}_${placementIdCounter++}`;
 };

@@ -15,90 +15,58 @@
                 <canvas id="layer-4" class="game-layer"></canvas>
                 <canvas id="layer-5" class="game-layer"></canvas>
             </div>
+            
             <div class="ui-overlay">
                 <!-- ALL UI elements go here -->
-                <div id="top-controls">
-                    <button onclick="window.appState.saveCurrentLayout()">
-                        Save Layout
-                    </button>
-                    <input
-                        type="file"
-                        id="loadFileInput"
-                        accept=".json"
-                        style="display: none"
-                        onchange="window.appState.loadLayout(this.files[0]).catch(console.error)"
-                    />
-                    <button onclick="document.getElementById('loadFileInput').click()">
-                        Load Layout
-                    </button>
-                    <button onclick="window.appState.createNewLayout()">
-                        New Layout
-                    </button>
-                    <button onclick="console.log('Current appState:', window.appState)">
-                        Debug State
-                    </button>
-                </div>
+                
                 <div id="palette-container">
                     <!-- Category Toolbar -->
                     <div id="category-toolbar">
-                        <button
-                            class="category-btn"
-                            data-category="buildings"
-                            title="Buildings"
-                        >
-                            <div style="background: #666">B</div>
+                        <button class="category-btn" data-category="buildings" title="Buildings">
+                            <div>B</div>
                         </button>
-                        <button
-                            class="category-btn"
-                            data-category="crops"
-                            title="Crops"
-                        >
-                            <div style="background: #4a752c">C</div>
+                        <button class="category-btn" data-category="crops" title="Crops">
+                            <div>C</div>
                         </button>
-                        <button
-                            class="category-btn"
-                            data-category="decor"
-                            title="Decor"
-                        >
-                            <div style="background: #8b4513">D</div>
+                        <button class="category-btn" data-category="decor" title="Decor">
+                            <div>D</div>
                         </button>
-                        <button
-                            class="category-btn"
-                            data-category="machines"
-                            title="Machines"
-                        >
-                            <div style="background: #708090">M</div>
+                        <button class="category-btn" data-category="machines" title="Machines">
+                            <div>M</div>
                         </button>
-                        <button
-                            class="category-btn"
-                            data-category="wallpaper"
-                            title="Wallpaper"
-                        >
-                            <div style="background: #9370db">W</div>
+                        <button class="category-btn" data-category="wallpaper" title="Wallpaper">
+                            <div>W</div>
+                        </button>
+                        <button class="category-btn" data-category="settings" title="Settings">
+                            <div>S</div>
                         </button>
                     </div>
 
                     <!-- Expanding Palette Panel (hidden by default) -->
                     <div id="palette-panel">
                         <div id="search-container">
-                            <input
-                                type="text"
-                                id="search-input"
-                                placeholder="Search objects..."
-                            />
+                            <input type="text" id="search-input" placeholder="Search objects..." />
                             <button id="close-palette-btn">✕</button>
                         </div>
                         <div id="objects-grid"></div>
+                        <div id="settings-panel" style="display: none;">
+                            <button>Save Layout</button>
+                            <button>Load Layout</button>
+                            <button>New Layout</button>
+                            <button>Debug State</button>
+                        </div>
                     </div>
                 </div>
+                
                 <div id="status-bar">
                     <span id="cursor-coords">X: 0, Y: 0</span>
-                    <span id="selected-object" style="margin-left: 20px"
-                        >Selected: None</span
-                    >
+                    <span id="selected-object" style="margin-left: 20px">Selected: None</span>
                 </div>
             </div>
         </div>
+
+        <!-- Hidden file input for loading layouts -->
+        <input type="file" id="loadFileInput" accept=".json" style="display: none;" />
 
         <!-- Load in dependency order -->
         <script type="module">

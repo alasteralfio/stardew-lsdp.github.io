@@ -14,17 +14,21 @@ class PaletteController {
         // Load all objects
         this.allObjects = await loadObjects();
         console.log('Palette controller initialized with', Object.keys(this.allObjects).length, 'objects');
+        console.log('Sample objects:', Object.keys(this.allObjects).slice(0, 5));
         
         // Setup event listeners
         this.setupEventListeners();
+        
+        // Make togglePalette globally available
+        window.togglePalette = this.togglePalette.bind(this);
     }
     
     setupEventListeners() {
-        // Category selection
+        // Category buttons
         document.querySelectorAll('.category-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const category = e.currentTarget.dataset.category;
-                this.selectCategory(category);
+                this.togglePalette(category);
             });
         });
         
@@ -33,58 +37,131 @@ class PaletteController {
             this.hidePalette();
         });
         
+        // Settings buttons
+        document.querySelectorAll('#settings-panel button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.handleSettingsButton(e.target.textContent);
+            });
+        });
+        
         // Search
         document.getElementById('search-input').addEventListener('input', (e) => {
             this.filterObjects(e.target.value);
         });
+        
+        // File input for loading layouts
+        document.getElementById('loadFileInput').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.appState.loadLayout(e.target.files[0]);
+            }
+        });
+    }
+    
+    togglePalette(category) {
+        const panel = document.getElementById('palette-panel');
+        const grid = document.getElementById('objects-grid');
+        const search = document.getElementById('search-container');
+        const settings = document.getElementById('settings-panel');
+        
+        // Check if the same category is being clicked again
+        if (this.currentCategory === category && panel.classList.contains('show')) {
+            // Close the panel
+            panel.classList.remove('show');
+            setTimeout(() => {
+                panel.style.display = 'none';
+            }, 300); // Match transition duration
+            this.currentCategory = null;
+        } else {
+            // Open the new category
+            panel.style.display = 'block';
+            setTimeout(() => panel.classList.add('show'), 10); // Small delay to trigger transition
+            this.currentCategory = category;
+            
+            if (category === 'settings') {
+                search.style.display = 'none';
+                grid.style.display = 'none';
+                settings.style.display = 'flex';
+            } else {
+                search.style.display = 'flex';
+                grid.style.display = 'grid';
+                settings.style.display = 'none';
+                this.loadCategoryObjects(category);
+            }
+        }
     }
     
     selectCategory(category) {
         this.currentCategory = category;
         this.showPalette();
-        this.loadCategoryObjects(category);
-    }
-    
-    showPalette() {
-        document.getElementById('palette-container').style.width = '300px';
-        document.getElementById('palette-panel').style.display = 'block';
+        if (category === 'settings') {
+            this.showSettingsPanel();
+        } else {
+            this.loadCategoryObjects(category);
+        }
     }
     
     hidePalette() {
-        document.getElementById('palette-container').style.width = '60px';
-        document.getElementById('palette-panel').style.display = 'none';
+        const panel = document.getElementById('palette-panel');
+        panel.classList.remove('show');
+        setTimeout(() => {
+            panel.style.display = 'none';
+        }, 300); // Match transition duration
         this.currentCategory = null;
     }
     
+    showSettingsPanel() {
+        const grid = document.getElementById('objects-grid');
+        const search = document.getElementById('search-container');
+        const settings = document.getElementById('settings-panel');
+        
+        search.style.display = 'none';
+        grid.style.display = 'none';
+        settings.style.display = 'flex';
+    }
+    
     loadCategoryObjects(category) {
-        // Filter objects by category
         this.filteredObjects = Object.entries(this.allObjects)
             .filter(([key, obj]) => obj.category === category)
             .map(([key, obj]) => ({ ...obj, objectKey: key }));
         
+        console.log(`Loaded ${this.filteredObjects.length} objects for category ${category}:`, this.filteredObjects.map(obj => obj.name));
         this.renderObjectsGrid();
     }
     
-    filterObjects(searchTerm) {
-        if (!searchTerm) {
-            // If no search term, show current category
-            this.loadCategoryObjects(this.currentCategory);
-            return;
+    selectObject(obj) {
+        // Clear previous selection
+        document.querySelectorAll('.object-item.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+        
+        // Set new selection
+        const selectedElement = document.querySelector(`[data-object-key="${obj.objectKey}"]`);
+        if (selectedElement) {
+            selectedElement.classList.add('selected');
         }
         
-        this.filteredObjects = Object.entries(this.allObjects)
-            .filter(([key, obj]) => {
-                const matchesCategory = obj.category === this.currentCategory;
-                const matchesSearch = obj.name.toLowerCase().includes(searchTerm.toLowerCase());
-                return matchesCategory && matchesSearch;
-            })
-            .map(([key, obj]) => ({ ...obj, objectKey: key }));
+        // Update appState
+        this.appState.selectedItem = {
+            objectKey: obj.objectKey,
+            layer: obj.defaultLayer
+        };
         
-        this.renderObjectsGrid();
+        // Update status bar
+        const statusBar = document.getElementById('selected-object');
+        statusBar.textContent = `Selected: ${obj.name}`;
+        
+        console.log('Selected object:', obj.objectKey, obj.name);
     }
     
     renderObjectsGrid() {
         const grid = document.getElementById('objects-grid');
+        const search = document.getElementById('search-container');
+        const settings = document.getElementById('settings-panel');
+        
+        search.style.display = 'flex';
+        grid.style.display = 'grid';
+        settings.style.display = 'none';
+        
         grid.innerHTML = '';
         
         this.filteredObjects.forEach(obj => {
@@ -99,10 +176,10 @@ class PaletteController {
         element.dataset.objectKey = obj.objectKey;
         element.title = obj.name;
         element.innerHTML = `
-            <div style="width: 48px; height: 48px; background: #555; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; cursor: pointer; border: 1px solid #666;">
+            <div class="object-preview">
                 ${obj.name.charAt(0)}
             </div>
-            <div style="font-size: 10px; margin-top: 2px; text-align: center; max-width: 48px; overflow: hidden; text-overflow: ellipsis;">
+            <div class="object-name">
                 ${obj.name}
             </div>
         `;
@@ -114,22 +191,21 @@ class PaletteController {
         return element;
     }
     
-    selectObject(obj) {
-        this.appState.selectedItem = {
-            objectKey: obj.objectKey,
-            layer: obj.defaultLayer
-        };
-        
-        // Update UI to show selection
-        document.querySelectorAll('.object-item').forEach(el => {
-            el.style.borderColor = '#666';
-        });
-        event.target.closest('.object-item').style.borderColor = '#00ff00';
-        
-        // Update status bar
-        document.getElementById('selected-object').textContent = `Selected: ${obj.name}`;
-        
-        console.log('Selected object:', obj.objectKey);
+    handleSettingsButton(action) {
+        switch (action) {
+            case 'Save Layout':
+                this.appState.saveCurrentLayout();
+                break;
+            case 'Load Layout':
+                document.getElementById('loadFileInput').click();
+                break;
+            case 'New Layout':
+                this.appState.createNewLayout();
+                break;
+            case 'Debug State':
+                console.log('Current appState:', this.appState);
+                break;
+        }
     }
 }
 

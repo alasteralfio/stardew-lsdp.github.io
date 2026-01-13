@@ -1,6 +1,7 @@
 // src/core/interactionHandler.js
 import { TILE_SIZE } from './constants.js';
 import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
+import { placeObjectAtGrid, removeObjectAtGrid } from './placementLogic.js';
 
 let isDragging = false;
 let currentPlacement = null;
@@ -38,7 +39,7 @@ function handleMouseDown(event, canvas, appState) {
         canvas.style.cursor = 'default';
         
         // Clear any ghost visuals from overlay
-        const overlayCanvas = document.getElementById('layer-4');
+        const overlayCanvas = document.getElementById('layer-5');
         const overlayCtx = overlayCanvas.getContext('2d');
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         
@@ -59,6 +60,8 @@ function handleMouseDown(event, canvas, appState) {
             }
             overlayCtx.stroke();
         }
+        
+        canvas.style.cursor = appState.selectedItem ? 'crosshair' : 'default';
     }
     
     // Get mouse position relative to canvas
@@ -74,7 +77,7 @@ function handleMouseDown(event, canvas, appState) {
     const placement = findPlacementAtGrid(gridX, gridY, appState);
     
     if (placement) {
-        // Start dragging
+        // Start dragging existing placement
         isDragging = true;
         currentPlacement = placement;
         
@@ -87,15 +90,32 @@ function handleMouseDown(event, canvas, appState) {
         
         console.log(`Started dragging placement ${placement.id}, offset: [${dragOffsetX}, ${dragOffsetY}]`);
         canvas.style.cursor = 'grabbing';
+    } else if (appState.selectedItem) {
+        // Place new object
+        placeObjectAtGrid(appState, appState.selectedItem.objectKey, gridX, gridY, appState.selectedItem.layer);
     }
 }
 
 function handleMouseMove(event, canvas, appState) {
-    if (!isDragging) return;
-    
+    // Update cursor coordinates in status bar
     const rect = canvas.getBoundingClientRect();
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
+    const gridCoords = getGridCoordinates(mouseX, mouseY);
+    
+    const cursorCoordsElement = document.getElementById('cursor-coords');
+    if (cursorCoordsElement) {
+        cursorCoordsElement.textContent = `X: ${gridCoords.gridX}, Y: ${gridCoords.gridY}`;
+    }
+    
+    // Update cursor style based on selection
+    if (appState.selectedItem) {
+        canvas.style.cursor = 'crosshair';
+    } else if (!isDragging) {
+        canvas.style.cursor = 'default';
+    }
+    
+    if (!isDragging) return;
     
     // Calculate new grid position using the stored offset
     const newPixelX = mouseX - dragOffsetX;
@@ -108,7 +128,7 @@ function handleMouseMove(event, canvas, appState) {
     // console.log(`Dragging to provisional grid: [${newGridX}, ${newGridY}]`);
     
     // Get overlay context for visual feedback
-    const overlayCanvas = document.getElementById('layer-4');
+    const overlayCanvas = document.getElementById('layer-5');
     const overlayCtx = overlayCanvas.getContext('2d');
     
     // Clear previous ghost rectangle only (not the entire grid)
@@ -174,10 +194,10 @@ function handleMouseUp(event, appState) {
 
     // Reset dragging state
     isDragging = false;
-    canvas.style.cursor = 'default';
+    canvas.style.cursor = appState.selectedItem ? 'crosshair' : 'default';
 
     // Clear the ghost rectangle from overlay layer
-    const overlayCanvas = document.getElementById('layer-4');
+    const overlayCanvas = document.getElementById('layer-5');
     const overlayCtx = overlayCanvas.getContext('2d');
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
@@ -234,6 +254,15 @@ export function initViewportPanning(viewportElement) {
     let isPanning = false;
     let lastX = 0;
     let lastY = 0;
+    let panX = 0;
+    let panY = 0;
+    
+    const updateCanvasTransforms = () => {
+        const canvases = viewportElement.querySelectorAll('canvas');
+        canvases.forEach(canvas => {
+            canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+        });
+    };
     
     viewportElement.addEventListener('mousedown', (e) => {
         if (e.button === 1) { // Middle mouse button
@@ -251,8 +280,10 @@ export function initViewportPanning(viewportElement) {
         const deltaX = e.clientX - lastX;
         const deltaY = e.clientY - lastY;
         
-        viewportElement.scrollLeft -= deltaX;
-        viewportElement.scrollTop -= deltaY;
+        panX += deltaX;
+        panY += deltaY;
+        
+        updateCanvasTransforms();
         
         lastX = e.clientX;
         lastY = e.clientY;
@@ -267,4 +298,7 @@ export function initViewportPanning(viewportElement) {
         isPanning = false;
         viewportElement.style.cursor = 'grab';
     });
+    
+    // Initialize cursor
+    viewportElement.style.cursor = 'grab';
 }

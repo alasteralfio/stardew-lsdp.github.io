@@ -28,13 +28,15 @@ let objectsData = null;
 export async function loadObjects() {
     if (objectsData) return objectsData;
     
+    console.log('Loading object data from JSON files...');
+    
     // Load all object category files
     const [buildings, crops, decor, machines, wallpaper] = await Promise.all([
-        fetch('./data/objects/buildings.json').then(r => r.json()).catch(() => ({})),
-        fetch('./data/objects/crops.json').then(r => r.json()).catch(() => ({})),
-        fetch('./data/objects/decor.json').then(r => r.json()).catch(() => ({})),
-        fetch('./data/objects/machines.json').then(r => r.json()).catch(() => ({})),
-        fetch('./data/objects/wallpaper.json').then(r => r.json()).catch(() => ({}))
+        fetch('./data/objects/buildings.json').then(r => r.json()).catch(e => { console.error('Failed to load buildings.json:', e); return {}; }),
+        fetch('./data/objects/crops.json').then(r => r.json()).catch(e => { console.error('Failed to load crops.json:', e); return {}; }),
+        fetch('./data/objects/decor.json').then(r => r.json()).catch(e => { console.error('Failed to load decor.json:', e); return {}; }),
+        fetch('./data/objects/machines.json').then(r => r.json()).catch(e => { console.error('Failed to load machines.json:', e); return {}; }),
+        fetch('./data/objects/wallpaper.json').then(r => r.json()).catch(e => { console.error('Failed to load wallpaper.json:', e); return {}; })
     ]);
     
     // Merge into single object for easy lookup
@@ -45,6 +47,15 @@ export async function loadObjects() {
         ...machines,
         ...wallpaper
     };
+    
+    console.log('Loaded objects from files:', {
+        buildings: Object.keys(buildings).length,
+        crops: Object.keys(crops).length,
+        decor: Object.keys(decor).length,
+        machines: Object.keys(machines).length,
+        wallpaper: Object.keys(wallpaper).length,
+        total: Object.keys(objectsData).length
+    });
     
     // Normalize sprite property - convert arrays to single strings (use first sprite for now)
     for (const [key, obj] of Object.entries(objectsData)) {

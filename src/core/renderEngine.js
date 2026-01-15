@@ -274,7 +274,7 @@ async function init() {
         await drawAllObjects();
         
         // Initialize palette controller after everything else is ready
-        const paletteController = new PaletteController(window.appState);
+        window.paletteController = new PaletteController(window.appState);
         
         // Initialize UI controller
         const uiController = new UIController(window.appState);

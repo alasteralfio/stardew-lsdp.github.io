@@ -6,6 +6,8 @@ class PaletteController {
         this.currentCategory = null;
         this.allObjects = null;
         this.filteredObjects = [];
+        this.searchTimeout = null;
+        this.eventListeners = new Map(); // Track event listeners for cleanup
         
         this.init();
     }
@@ -25,36 +27,69 @@ class PaletteController {
     
     setupEventListeners() {
         // Category buttons
-        document.querySelectorAll('.category-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        const categoryBtns = document.querySelectorAll('.category-btn');
+        categoryBtns.forEach(btn => {
+            const clickHandler = (e) => {
                 const category = e.currentTarget.dataset.category;
                 this.togglePalette(category);
-            });
+            };
+            btn.addEventListener('click', clickHandler);
+            this.eventListeners.set(`category-btn-${btn.dataset.category}`, { element: btn, handler: clickHandler, type: 'click' });
         });
         
         // Close palette
-        document.getElementById('close-palette-btn').addEventListener('click', () => {
-            this.hidePalette();
-        });
+        const closePaletteBtn = document.getElementById('close-palette-btn');
+        const closePaletteHandler = () => this.hidePalette();
+        closePaletteBtn.addEventListener('click', closePaletteHandler);
+        this.eventListeners.set('close-palette-btn', { element: closePaletteBtn, handler: closePaletteHandler, type: 'click' });
         
         // Settings buttons
-        document.querySelectorAll('#settings-panel button').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        const settingsBtns = document.querySelectorAll('#settings-panel button');
+        settingsBtns.forEach((btn, idx) => {
+            const btnHandler = (e) => {
                 this.handleSettingsButton(e.target.textContent);
-            });
+            };
+            btn.addEventListener('click', btnHandler);
+            this.eventListeners.set(`settings-btn-${idx}`, { element: btn, handler: btnHandler, type: 'click' });
         });
         
-        // Search
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            this.filterObjects(e.target.value);
-        });
+        // Search - with debouncing
+        const searchInput = document.getElementById('search-input');
+        const searchHandler = (e) => {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = setTimeout(() => {
+                this.filterObjects(e.target.value);
+            }, 100); // 100ms debounce
+        };
+        searchInput.addEventListener('input', searchHandler);
+        this.eventListeners.set('search-input', { element: searchInput, handler: searchHandler, type: 'input' });
         
         // File input for loading layouts
-        document.getElementById('loadFileInput').addEventListener('change', (e) => {
+        const loadFileInput = document.getElementById('loadFileInput');
+        const loadHandler = (e) => {
             if (e.target.files.length > 0) {
                 this.appState.loadLayout(e.target.files[0]);
             }
+        };
+        loadFileInput.addEventListener('change', loadHandler);
+        this.eventListeners.set('loadFileInput', { element: loadFileInput, handler: loadHandler, type: 'change' });
+    }
+    
+    cleanup() {
+        // Remove all event listeners to prevent memory leaks
+        this.eventListeners.forEach(({ element, handler, type }) => {
+            if (element) {
+                element.removeEventListener(type, handler);
+            }
         });
+        this.eventListeners.clear();
+        
+        // Clear any pending search timeout
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+        }
+        
+        console.log('PaletteController cleanup complete');
     }
     
     togglePalette(category) {
@@ -62,6 +97,7 @@ class PaletteController {
         const grid = document.getElementById('objects-grid');
         const search = document.getElementById('search-container');
         const settings = document.getElementById('settings-panel');
+        const searchInput = document.getElementById('search-input');
         
         // Check if the same category is being clicked again
         if (this.currentCategory === category && panel.classList.contains('show')) {
@@ -77,14 +113,19 @@ class PaletteController {
             setTimeout(() => panel.classList.add('show'), 10); // Small delay to trigger transition
             this.currentCategory = category;
             
+            // Clear search input when switching categories
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            
             if (category === 'settings') {
                 search.style.display = 'none';
                 grid.style.display = 'none';
-                settings.style.display = 'flex';
+                settings.classList.add('show');
             } else {
                 search.style.display = 'flex';
                 grid.style.display = 'grid';
-                settings.style.display = 'none';
+                settings.classList.remove('show');
                 this.loadCategoryObjects(category);
             }
         }
@@ -116,15 +157,37 @@ class PaletteController {
         
         search.style.display = 'none';
         grid.style.display = 'none';
-        settings.style.display = 'flex';
+        settings.classList.add('show');
     }
     
     loadCategoryObjects(category) {
+        this.currentCategory = category;
         this.filteredObjects = Object.entries(this.allObjects)
             .filter(([key, obj]) => obj.category === category)
             .map(([key, obj]) => ({ ...obj, objectKey: key }));
         
         console.log(`Loaded ${this.filteredObjects.length} objects for category ${category}:`, this.filteredObjects.map(obj => obj.name));
+        this.renderObjectsGrid();
+    }
+    
+    filterObjects(searchTerm) {
+        // If no search term, show all objects in current category
+        if (!searchTerm || !searchTerm.trim()) {
+            this.loadCategoryObjects(this.currentCategory);
+            return;
+        }
+        
+        // Filter objects by current category AND search term
+        const searchLower = searchTerm.toLowerCase();
+        this.filteredObjects = Object.entries(this.allObjects)
+            .filter(([key, obj]) => {
+                const matchesCategory = obj.category === this.currentCategory;
+                const matchesSearch = obj.name.toLowerCase().includes(searchLower);
+                return matchesCategory && matchesSearch;
+            })
+            .map(([key, obj]) => ({ ...obj, objectKey: key }));
+        
+        console.log(`Search "${searchTerm}" found ${this.filteredObjects.length} objects in ${this.currentCategory}`);
         this.renderObjectsGrid();
     }
     

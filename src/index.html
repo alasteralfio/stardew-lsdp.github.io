@@ -49,7 +49,7 @@
                             <button id="close-palette-btn">✕</button>
                         </div>
                         <div id="objects-grid"></div>
-                        <div id="settings-panel" style="display: none;">
+                        <div id="settings-panel">
                             <button>Save Layout</button>
                             <button>Load Layout</button>
                             <button>New Layout</button>
@@ -60,13 +60,13 @@
                 
                 <div id="status-bar">
                     <span id="cursor-coords">X: 0, Y: 0</span>
-                    <span id="selected-object" style="margin-left: 20px">Selected: None</span>
+                    <span id="selected-object">Selected: None</span>
                 </div>
             </div>
         </div>
 
         <!-- Hidden file input for loading layouts -->
-        <input type="file" id="loadFileInput" accept=".json" style="display: none;" />
+        <input type="file" id="loadFileInput" accept=".json" class="hidden-input" />
 
         <!-- Load in dependency order -->
         <script type="module">
@@ -79,6 +79,13 @@
             // Initialize when page loads
             document.addEventListener("DOMContentLoaded", async () => {
                 await init();
+            });
+
+            // Clean up resources when page is unloaded
+            window.addEventListener("beforeunload", () => {
+                if (window.paletteController) {
+                    window.paletteController.cleanup();
+                }
             });
         </script>
     </body>

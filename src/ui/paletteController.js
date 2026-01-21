@@ -227,9 +227,14 @@ class PaletteController {
         const search = document.getElementById('search-container');
         const settings = document.getElementById('settings-panel');
         
+        // Only render objects grid if we're not in settings mode
+        if (this.currentCategory === 'settings') {
+            return; // Don't render objects grid when in settings
+        }
+        
         search.style.display = 'flex';
         grid.style.display = 'grid';
-        settings.style.display = 'none';
+        settings.classList.remove('show'); // Use class, not inline style
         
         grid.innerHTML = '';
         

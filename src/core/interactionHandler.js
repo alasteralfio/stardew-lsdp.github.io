@@ -142,9 +142,16 @@ function handleMouseMove(event, canvas, appState) {
         });
     }
     
-    // Update cursor style based on selection
+    // Update cursor style based on selection and validation
     if (appState.selectedItem && !isDragging) {
-        canvas.style.cursor = 'crosshair';
+        // Show feedback based on preview validity
+        if (appState.isPreviewActive() && !appState.previewState.isValid) {
+            canvas.style.cursor = 'not-allowed';
+        } else if (appState.isPreviewActive()) {
+            canvas.style.cursor = 'crosshair';
+        } else {
+            canvas.style.cursor = 'crosshair';
+        }
     } else if (!isDragging) {
         canvas.style.cursor = 'default';
     }

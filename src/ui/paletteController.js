@@ -271,7 +271,10 @@ class PaletteController {
                 this.appState.saveCurrentLayout();
                 break;
             case 'Load Layout':
-                document.getElementById('loadFileInput').click();
+                const loadFileInput = document.getElementById('loadFileInput');
+                // Reset the file input value to allow loading the same file multiple times
+                loadFileInput.value = '';
+                loadFileInput.click();
                 break;
             case 'New Layout':
                 this.appState.createNewLayout();

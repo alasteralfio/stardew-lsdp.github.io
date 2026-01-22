@@ -87,6 +87,18 @@ async function isValidPlacement(appState, objectKey, gridX, gridY, layer, exclud
     const footprintWidth = objectDef.footprintWidth || 1;
     const footprintHeight = objectDef.footprintHeight || 1;
 
+    // Check boundaries - prevent negative or out-of-bounds placement
+    if (gridX < 0 || gridY < 0) {
+        return { valid: false, reason: 'Cannot place outside map boundaries' };
+    }
+
+    const gridWidth = location.gridWidth || Math.ceil(location.pixelWidth / 16);
+    const gridHeight = location.gridHeight || Math.ceil(location.pixelHeight / 16);
+    
+    if (gridX + footprintWidth > gridWidth || gridY + footprintHeight > gridHeight) {
+        return { valid: false, reason: 'Object extends beyond map edge' };
+    }
+
     if (isInBlockedArea(gridX, gridY, footprintWidth, footprintHeight, location.blockedAreas)) {
         return { valid: false, reason: 'Placement blocked by terrain' };
     }
@@ -152,6 +164,82 @@ export function removeObjectAtGrid(appState, gridX, gridY, layer) {
 
     console.log('Removed object at', gridX, gridY);
     return true;
+}
+
+// Delete object by ID instantly (no animation)
+export async function deleteObject(appState, placementId, fabricCanvas) {
+    const currentLocation = appState.modifiedLocations.find(
+        loc => loc.locationKey === appState.currentView.locationKey
+    );
+
+    if (!currentLocation) {
+        console.warn('No current location found for deletion');
+        return false;
+    }
+
+    const placementIndex = currentLocation.directPlacements.findIndex(p => p.id === placementId);
+    
+    if (placementIndex === -1) {
+        console.warn(`Placement with ID ${placementId} not found`);
+        return false;
+    }
+
+    const placement = currentLocation.directPlacements[placementIndex];
+
+    // If it's a Layer 3 object (Fabric.js), remove it
+    if (placement.layer === 3 && fabricCanvas) {
+        const fabricObjects = fabricCanvas.getObjects();
+        const fabricObj = fabricObjects.find(obj => obj.data && obj.data.id === placementId);
+        
+        if (fabricObj) {
+            fabricCanvas.remove(fabricObj);
+            fabricCanvas.renderAll();
+        }
+    }
+
+    // Remove from appState
+    currentLocation.directPlacements.splice(placementIndex, 1);
+
+    // Trigger re-render
+    window.dispatchEvent(new CustomEvent('placementsUpdated'));
+
+    console.log('Deleted object:', placement.objectKey, 'with ID:', placementId);
+    return true;
+}
+
+// Find placement object by pixel position using footprint-based collision
+export async function findObjectAtPosition(appState, pixelX, pixelY, fabricCanvas) {
+    const currentLocation = appState.modifiedLocations.find(
+        loc => loc.locationKey === appState.currentView.locationKey
+    );
+
+    if (!currentLocation) return null;
+
+    // Check all placements to find which one contains this pixel position using footprint bounds
+    for (let i = currentLocation.directPlacements.length - 1; i >= 0; i--) {
+        const placement = currentLocation.directPlacements[i];
+        
+        // Get object definition to get footprint
+        const objectDef = await fetchObjectDefinition(placement.objectKey);
+        if (!objectDef) continue;
+
+        const footprintWidth = objectDef.footprintWidth || 1;
+        const footprintHeight = objectDef.footprintHeight || 1;
+
+        // Convert pixel position to grid position
+        const gridX = Math.floor(pixelX / 16);
+        const gridY = Math.floor(pixelY / 16);
+
+        // Check if grid position is within footprint bounds
+        if (gridX >= placement.gridX && 
+            gridX < placement.gridX + footprintWidth &&
+            gridY >= placement.gridY && 
+            gridY < placement.gridY + footprintHeight) {
+            return placement;
+        }
+    }
+
+    return null;
 }
 
 export { isInBlockedArea, collidesWithExistingObjects, checkPlacementRules, isValidPlacement };

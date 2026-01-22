@@ -333,8 +333,15 @@ function updateOverlay() {
 // Render queue to prevent concurrent draw operations
 let isDrawing = false;
 let pendingDraw = false;
+let drawTimeoutId = null;
 
 async function queuedDrawAllObjects() {
+    // Clear any pending timeout to prevent multiple queued draws
+    if (drawTimeoutId !== null) {
+        clearTimeout(drawTimeoutId);
+        drawTimeoutId = null;
+    }
+
     if (isDrawing) {
         // Mark that another draw is needed after current one completes
         pendingDraw = true;
@@ -342,13 +349,22 @@ async function queuedDrawAllObjects() {
     }
     
     isDrawing = true;
-    await drawAllObjects();
-    isDrawing = false;
-    
-    // If another draw was requested while we were drawing, do it now
-    if (pendingDraw) {
-        pendingDraw = false;
-        await queuedDrawAllObjects();
+    try {
+        await drawAllObjects();
+    } catch (error) {
+        console.error('Error during draw:', error);
+    } finally {
+        isDrawing = false;
+        
+        // If another draw was requested while we were drawing, do it now
+        if (pendingDraw) {
+            pendingDraw = false;
+            // Use a small timeout to batch multiple rapid requests
+            drawTimeoutId = setTimeout(() => {
+                drawTimeoutId = null;
+                queuedDrawAllObjects();
+            }, 0);
+        }
     }
 }
 
@@ -368,7 +384,7 @@ async function init() {
 
         // Initialize drag-and-drop interactions for overlay layer (top layer)
         if (canvases.overlay) {
-            initInteractions(canvases.overlay, window.appState);
+            initInteractions(canvases.overlay, window.appState, fabricCanvas);
         } else {
             console.error('DEBUG: canvases.overlay is undefined!');
         }

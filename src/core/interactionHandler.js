@@ -1,7 +1,7 @@
 // src/core/interactionHandler.js
 import { TILE_SIZE } from './constants.js';
 import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
-import { placeObjectAtGrid, removeObjectAtGrid, isValidPlacement } from './placementLogic.js';
+import { placeObjectAtGrid, removeObjectAtGrid, isValidPlacement, deleteObject, findObjectAtPosition } from './placementLogic.js';
 import { fetchObjectDefinition } from './assetLoader.js';
 
 let isDragging = false;
@@ -225,7 +225,7 @@ function handleMouseUp(event, appState) {
     });
 }
 
-export function initInteractions(pathsCanvas, appState) {
+export function initInteractions(pathsCanvas, appState, fabricCanvas) {
     if (!pathsCanvas) {
         console.error('DEBUG: pathsCanvas is null or undefined!');
         return;
@@ -249,6 +249,79 @@ export function initInteractions(pathsCanvas, appState) {
         }
     });
 
+    // Right-click for deletion
+    pathsCanvas.addEventListener('contextmenu', async (event) => {
+        event.preventDefault();
+        
+        const rect = pathsCanvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        
+        // Find object at position
+        const placement = await findObjectAtPosition(appState, mouseX, mouseY, fabricCanvas);
+        
+        if (placement) {
+            console.log('Right-clicked object:', placement.objectKey);
+            // Delete the object
+            const success = await deleteObject(appState, placement.id, fabricCanvas);
+            if (success) {
+                console.log('Object deleted successfully');
+            } else {
+                console.warn('Failed to delete object');
+            }
+        } else {
+            console.log('Right-clicked empty space');
+        }
+    });
+
+    // Hover detection for visual feedback
+    let lastHoveredPlacement = null;
+    let lastHoverCheckTime = 0;
+    const HOVER_CHECK_THROTTLE = 50; // ms between hover checks
+    
+    pathsCanvas.addEventListener('mousemove', async (event) => {
+        const now = Date.now();
+        
+        // Throttle hover detection to prevent excessive checks
+        if (now - lastHoverCheckTime < HOVER_CHECK_THROTTLE) {
+            return;
+        }
+        lastHoverCheckTime = now;
+        
+        const rect = pathsCanvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        
+        const placement = await findObjectAtPosition(appState, mouseX, mouseY, fabricCanvas);
+        
+        // Update status bar hint only if hovering over object and not already selecting
+        const statusElement = document.getElementById('selected-object');
+        if (placement && statusElement && !appState.selectedItem) {
+            const objectDef = await fetchObjectDefinition(placement.objectKey);
+            const displayName = objectDef ? objectDef.name : placement.objectKey;
+            statusElement.textContent = `${displayName} - Right-click to delete`;
+            pathsCanvas.style.cursor = 'pointer';
+            lastHoveredPlacement = placement;
+        } else if (!placement && lastHoveredPlacement && !appState.selectedItem) {
+            // Clear status bar if we just left a hovered object
+            if (statusElement) {
+                statusElement.textContent = 'Selected: None';
+            }
+            pathsCanvas.style.cursor = 'default';
+            lastHoveredPlacement = null;
+        }
+    });
+
+    pathsCanvas.addEventListener('mouseleave', () => {
+        // Reset status bar and cursor when leaving canvas
+        const statusElement = document.getElementById('selected-object');
+        if (statusElement && !appState.selectedItem) {
+            statusElement.textContent = 'Selected: None';
+        }
+        pathsCanvas.style.cursor = 'default';
+        lastHoveredPlacement = null;
+    });
+
     // ESC key to deselect
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && appState.selectedItem) {
@@ -266,7 +339,7 @@ export function initInteractions(pathsCanvas, appState) {
         handleMouseUp(event, appState);
     });
 
-    console.log('Interaction handlers initialized for PATHS layer.');
+    console.log('Interaction handlers initialized for PATHS layer with deletion support.');
 }
 
 export function initViewportPanning(viewportElement) {

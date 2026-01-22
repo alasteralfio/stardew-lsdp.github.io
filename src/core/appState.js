@@ -49,6 +49,12 @@ const appState = {
             ],
         },
     ],
+
+    // Viewport state for zoom and per-location scroll position
+    viewportState: {
+        zoomLevel: 1.0, // Global zoom level (0.3x to 3.0x)
+        locationsViewport: {} // Per-location scroll: { [locationKey]: { scrollX: 0, scrollY: 0 } }
+    },
 };
 
 // Utility function to generate unique IDs for new placements
@@ -163,6 +169,29 @@ appState.createNewLayout = function() {
     setTimeout(() => {
         window.dispatchEvent(new CustomEvent('placementsUpdated'));
     }, 0);
+};
+
+// Get viewport state for a specific location (initializes if not exists)
+appState.getLocationViewport = function(locationKey) {
+    if (!this.viewportState.locationsViewport[locationKey]) {
+        this.viewportState.locationsViewport[locationKey] = { scrollX: 0, scrollY: 0 };
+    }
+    return this.viewportState.locationsViewport[locationKey];
+};
+
+// Set viewport state for a specific location
+appState.setLocationViewport = function(locationKey, scrollX, scrollY) {
+    this.viewportState.locationsViewport[locationKey] = { scrollX, scrollY };
+};
+
+// Set global zoom level
+appState.setZoomLevel = function(zoomLevel) {
+    this.viewportState.zoomLevel = Math.max(0.3, Math.min(3.0, zoomLevel)); // Clamp between 0.3x and 3.0x
+};
+
+// Get global zoom level
+appState.getZoomLevel = function() {
+    return this.viewportState.zoomLevel;
 };
 
 // Export for modules (remove the window assignment)

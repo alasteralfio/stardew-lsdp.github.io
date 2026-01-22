@@ -36,3 +36,15 @@ export function setCurrentLocation(key) {
     }
     return currentLocation;
 }
+
+export function getAvailableLocations() {
+    if (!locationsData) {
+        throw new Error('Locations data not loaded. Call loadLocations() first.');
+    }
+    return Object.keys(locationsData).map(key => ({
+        key: key,
+        name: locationsData[key].name,
+        gridWidth: locationsData[key].gridWidth,
+        gridHeight: locationsData[key].gridHeight
+    }));
+}

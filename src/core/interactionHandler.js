@@ -9,11 +9,13 @@ let currentPlacement = null;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 let originalDragPosition = { gridX: 0, gridY: 0 }; // Store original position for snap-back
+let zoomThrottleTimeout = null; // Throttle zoom events
 
-// Gets grid coordinates from mouse pixel position.
-function getGridCoordinates(pixelX, pixelY) {
-    const gridX = Math.floor(pixelX / TILE_SIZE);
-    const gridY = Math.floor(pixelY / TILE_SIZE);
+// Gets grid coordinates from mouse pixel position, accounting for zoom level.
+function getGridCoordinates(pixelX, pixelY, appState) {
+    const zoomLevel = appState ? appState.getZoomLevel() : 1.0;
+    const gridX = Math.floor(pixelX / TILE_SIZE / zoomLevel);
+    const gridY = Math.floor(pixelY / TILE_SIZE / zoomLevel);
     return { gridX, gridY };
 }
 
@@ -86,8 +88,8 @@ async function handleMouseDown(event, canvas, appState) {
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
     
-    // Convert to grid coordinates
-    const { gridX, gridY } = getGridCoordinates(mouseX, mouseY);
+    // Convert to grid coordinates (accounting for zoom)
+    const { gridX, gridY } = getGridCoordinates(mouseX, mouseY, appState);
     console.log(`Mouse down at grid: [${gridX}, ${gridY}]`);
     
     // Priority: If we have a selected item (intent to place), place it instead of dragging
@@ -106,11 +108,23 @@ async function handleMouseDown(event, canvas, appState) {
             // Store original position for snap-back if drop is invalid
             originalDragPosition = { gridX: placement.gridX, gridY: placement.gridY };
             
-            // Calculate offset correctly - store the offset from click position to tile corner
+            // Calculate offset in canvas coordinates
+            // This is where the cursor is relative to the tile in the canvas drawing space
+            const zoomLevel = appState.getZoomLevel();
+            const panX = window.viewportPanState?.panX || 0;
+            const panY = window.viewportPanState?.panY || 0;
+            
+            // Convert current mouse position to canvas coordinates
+            const canvasMouseX = (mouseX - panX) / zoomLevel;
+            const canvasMouseY = (mouseY - panY) / zoomLevel;
+            
+            // Tile position in canvas coordinates
             const tilePixelX = placement.gridX * TILE_SIZE;
             const tilePixelY = placement.gridY * TILE_SIZE;
-            dragOffsetX = mouseX - tilePixelX;
-            dragOffsetY = mouseY - tilePixelY;
+            
+            // Store offset in canvas coordinates
+            dragOffsetX = canvasMouseX - tilePixelX;
+            dragOffsetY = canvasMouseY - tilePixelY;
             
             // Fetch object definition for footprint visualization
             const def = await fetchObjectDefinition(placement.objectKey);
@@ -120,7 +134,7 @@ async function handleMouseDown(event, canvas, appState) {
                 footprintHeight: def ? (def.footprintHeight || 1) : 1
             };
             
-            console.log(`Started dragging placement ${placement.id}, offset: [${dragOffsetX}, ${dragOffsetY}]`);
+            console.log(`Started dragging placement ${placement.id}, offset: [${dragOffsetX}, ${dragOffsetY}], zoom: ${zoomLevel}x`);
             canvas.style.cursor = 'grabbing';
         } else {
             // Click on empty space with nothing selected = deselect/reset
@@ -134,7 +148,7 @@ function handleMouseMove(event, canvas, appState) {
     const rect = canvas.getBoundingClientRect();
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
-    const gridCoords = getGridCoordinates(mouseX, mouseY);
+    const gridCoords = getGridCoordinates(mouseX, mouseY, appState);
     
     const cursorCoordsElement = document.getElementById('cursor-coords');
     if (cursorCoordsElement) {
@@ -164,12 +178,21 @@ function handleMouseMove(event, canvas, appState) {
     
     if (!isDragging) return;
     
-    // Calculate new grid position using the stored offset
-    const newPixelX = mouseX - dragOffsetX;
-    const newPixelY = mouseY - dragOffsetY;
+    // Convert current mouse to canvas coordinates
+    const zoomLevel = appState.getZoomLevel();
+    const panX = window.viewportPanState?.panX || 0;
+    const panY = window.viewportPanState?.panY || 0;
+    const canvasMouseX = (mouseX - panX) / zoomLevel;
+    const canvasMouseY = (mouseY - panY) / zoomLevel;
     
-    const newGridX = Math.floor(newPixelX / TILE_SIZE);
-    const newGridY = Math.floor(newPixelY / TILE_SIZE);
+    // Calculate new tile position in canvas space
+    // dragOffsetX/Y are in canvas coordinates
+    const newTilePixelX = canvasMouseX - dragOffsetX;
+    const newTilePixelY = canvasMouseY - dragOffsetY;
+    
+    // Convert canvas pixels to grid coordinates
+    const newGridX = Math.floor(newTilePixelX / TILE_SIZE);
+    const newGridY = Math.floor(newTilePixelY / TILE_SIZE);
     
     // Validate drag position before updating
     if (currentPlacement) {
@@ -194,11 +217,18 @@ function handleMouseUp(event, appState) {
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
-    // Calculate FINAL snapped grid position
-    const finalGridX = Math.floor((mouseX - dragOffsetX) / TILE_SIZE);
-    const finalGridY = Math.floor((mouseY - dragOffsetY) / TILE_SIZE);
+    // Calculate FINAL snapped grid position, accounting for zoom and pan
+    const zoomLevel = appState.getZoomLevel();
+    const panX = window.viewportPanState?.panX || 0;
+    const panY = window.viewportPanState?.panY || 0;
+    const canvasMouseX = (mouseX - panX) / zoomLevel;
+    const canvasMouseY = (mouseY - panY) / zoomLevel;
+    const finalTilePixelX = canvasMouseX - dragOffsetX;
+    const finalTilePixelY = canvasMouseY - dragOffsetY;
+    const finalGridX = Math.floor(finalTilePixelX / TILE_SIZE);
+    const finalGridY = Math.floor(finalTilePixelY / TILE_SIZE);
 
-    console.log(`Dropped at grid: [${finalGridX}, ${finalGridY}]`);
+    console.log(`Dropped at grid: [${finalGridX}, ${finalGridY}], zoom: ${zoomLevel}x`);
 
     // Clear drag state immediately to stop visualization
     isDragging = false;
@@ -351,10 +381,61 @@ export function initViewportPanning(viewportElement) {
     
     const updateCanvasTransforms = () => {
         const canvases = viewportElement.querySelectorAll('canvas');
+        
         canvases.forEach(canvas => {
-            canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+            const zoomLevel = window.appState?.getZoomLevel() || 1.0;
+            // Simple transform: pan first (in screen space), then scale from center
+            // Pan is applied AFTER scale so it's not affected by zoom
+            canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+            canvas.style.transformOrigin = 'center center';
         });
     };
+    
+    // Mouse wheel zoom handler (throttled to 50ms)
+    viewportElement.addEventListener('wheel', (e) => {
+        if (!window.appState) return;
+        
+        // Only handle zoom if Ctrl is NOT held (to allow browser zoom)
+        if (e.ctrlKey) return;
+        
+        e.preventDefault();
+        
+        // Throttle zoom events to prevent excessive redraws
+        if (zoomThrottleTimeout) return;
+        
+        const viewportWidth = viewportElement.clientWidth;
+        const viewportHeight = viewportElement.clientHeight;
+        const viewportCenterX = viewportWidth / 2;
+        const viewportCenterY = viewportHeight / 2;
+        
+        const oldZoom = window.appState.getZoomLevel();
+        const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1; // Invert: scroll down = zoom out
+        const targetZoom = oldZoom + zoomDelta;
+        
+        // Calculate canvas point currently at viewport center (before zoom changes)
+        const canvasPointX = (viewportCenterX - panX) / oldZoom;
+        const canvasPointY = (viewportCenterY - panY) / oldZoom;
+        
+        // Set zoom (will be clamped internally)
+        window.appState.setZoomLevel(targetZoom);
+        const newZoom = window.appState.getZoomLevel(); // Get actual clamped zoom
+        
+        // Adjust pan so same canvas point stays at viewport center with new zoom
+        panX = viewportCenterX - canvasPointX * newZoom;
+        panY = viewportCenterY - canvasPointY * newZoom;
+        
+        console.log(`[Zoom] ${oldZoom.toFixed(1)}x → ${newZoom.toFixed(1)}x, pan: [${panX.toFixed(0)}, ${panY.toFixed(0)}]`);
+        
+        updateCanvasTransforms();
+        
+        // Trigger re-render
+        window.dispatchEvent(new CustomEvent('placementsUpdated'));
+        
+        // Throttle next zoom for 50ms
+        zoomThrottleTimeout = setTimeout(() => {
+            zoomThrottleTimeout = null;
+        }, 50);
+    }, { passive: false });
     
     viewportElement.addEventListener('mousedown', (e) => {
         if (e.button === 1) { // Middle mouse button
@@ -393,4 +474,10 @@ export function initViewportPanning(viewportElement) {
     
     // Initialize cursor
     viewportElement.style.cursor = 'grab';
+    
+    // Expose pan values to window for drag calculations
+    window.viewportPanState = {
+        get panX() { return panX; },
+        get panY() { return panY; }
+    };
 }

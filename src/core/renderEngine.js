@@ -422,6 +422,17 @@ async function switchLocation(newLocationKey) {
         window.appState.setZoomLevel(1.0);
         console.log(`[switchLocation] Zoom reset to 1.0`);
         
+        // Update canvas transforms to reflect zoom change (simple center-based zoom)
+        const viewport = document.querySelector('.game-viewport');
+        if (viewport) {
+            const canvasElements = viewport.querySelectorAll('canvas');
+            canvasElements.forEach(canvas => {
+                // Reset to 1.0x zoom from center
+                canvas.style.transform = `translate(0px, 0px) scale(1.0)`;
+                canvas.style.transformOrigin = 'center center';
+            });
+        }
+        
         // Step 5: Restore or initialize scroll position for new location
         const newLocationViewport = window.appState.getLocationViewport(newLocationKey);
         console.log(`[switchLocation] Restoring viewport for ${newLocationKey}:`, newLocationViewport);

@@ -1,5 +1,6 @@
 // Simple in-memory sprite cache
 const spriteCache = new Map();
+const frontLayerCache = new Map();
 
 // loads and caches imgs
 export async function loadSprite(src) {
@@ -18,6 +19,27 @@ export async function loadSprite(src) {
             resolve(img.cloneNode());
         };
         img.onerror = () => reject(new Error(`Failed to load sprite: ${src}`));
+        img.src = src;
+    });
+}
+
+// Load and cache front layer PNG (full image, unsliced)
+export async function loadFrontLayer(src) {
+    if (frontLayerCache.has(src)) {
+        const cached = frontLayerCache.get(src);
+        if (cached.complete) {
+            return Promise.resolve(cached);
+        }
+        frontLayerCache.delete(src);
+    }
+
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            frontLayerCache.set(src, img);
+            resolve(img);
+        };
+        img.onerror = () => reject(new Error(`Failed to load front layer: ${src}`));
         img.src = src;
     });
 }

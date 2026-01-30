@@ -8,6 +8,12 @@
         "assets/locations/farm0_2.png",
         "assets/locations/farm0_3.png"
     ],
+    "frontLayer": [
+        "assets/locations/front/farm0_0_front.png",
+        "assets/locations/front/farm0_1_front.png", 
+        "assets/locations/front/farm0_2_front.png",
+        "assets/locations/front/farm0_3_front.png"
+    ],
     "blockedAreas": [
         {"x": 0, "y": 0, "width": 40, "height": 5},
         {"x": 42, "y": 0, "width": 38, "height": 6},

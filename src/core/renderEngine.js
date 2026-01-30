@@ -1,7 +1,7 @@
 import { TILE_SIZE } from "./constants.js";
 import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
-import { loadSprite, fetchObjectDefinition } from './assetLoader.js';
-import { ySortPlacements, gridToPixel } from './renderHelpers.js';
+import { loadSprite, fetchObjectDefinition, loadFrontLayer } from './assetLoader.js';
+import { ySortPlacements, gridToPixel, extractFrontTiles } from './renderHelpers.js';
 import { initInteractions } from './interactionHandler.js';
 import { initViewportPanning } from './interactionHandler.js';
 import { PaletteController } from '../ui/paletteController.js';
@@ -108,6 +108,41 @@ function drawGrid() {
 async function drawSingleObject(placement) {
     const location = getCurrentLocation();
     if (!location) return;
+
+    // Special handling for front tiles - render directly without object definition lookup
+    if (placement.isFrontTile) {
+        const { pixelX, pixelY } = gridToPixel(placement.gridX, placement.gridY);
+        
+        // Draw 16x16 tile from front layer image
+        const frontImg = placement.frontImage;
+        const tileCoord = placement.frontTileCoord;
+        const tilePixelX = tileCoord.x * 16;
+        const tilePixelY = tileCoord.y * 16;
+        
+        // Create fabric.Image for the front tile (non-interactive, pass-through)
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 16;
+        tempCanvas.height = 16;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(
+            frontImg,
+            tilePixelX, tilePixelY, 16, 16,
+            0, 0, 16, 16
+        );
+        
+        const fabricImg = new fabric.Image(tempCanvas, {
+            left: pixelX,
+            top: pixelY,
+            scaleX: 1,
+            scaleY: 1,
+            selectable: false,
+            evented: false, // Pass-through: don't intercept interactions
+            hasControls: false
+        });
+        fabricCanvas.add(fabricImg);
+        console.log(`Added front tile at [${placement.gridX}, ${placement.gridY}]`);
+        return;
+    }
 
     const objectDef = await fetchObjectDefinition(placement.objectKey);
     if (!objectDef) {
@@ -245,7 +280,6 @@ async function drawSingleObject(placement) {
             data: { id: placement.id, objectKey: placement.objectKey, footprintWidth: objectDef.footprintWidth, footprintHeight: objectDef.footprintHeight }
         });
         fabricCanvas.add(fabricImg);
-        fabricCanvas.renderAll();
         console.log(`Added sprite image to Fabric canvas, total objects: ${fabricCanvas.getObjects().length}`);
     } else if (placement.layer === 4 && ctx.front) {
         console.log(`Drawing on layer 4`);
@@ -280,14 +314,36 @@ async function drawAllObjects() {
     if (fabricCanvas) fabricCanvas.clear();
     if (ctx.front) ctx.front.clearRect(0, 0, location.pixelWidth, location.pixelHeight); 
 
-    // If no current location data or no placements, we're done (canvas is cleared)
-    if (!currentLocationData || !currentLocationData.directPlacements.length) {
+    // Load front tiles from location if available (with seasonal variant)
+    let frontTiles = [];
+    if (location.frontLayer) {
+        try {
+            // Get the seasonal variant of the front layer
+            let frontLayerSrc = location.frontLayer;
+            if (Array.isArray(location.frontLayer)) {
+                const seasonIndex = window.appState ? window.appState.getSeasonAtlasIndex() : 0;
+                frontLayerSrc = location.frontLayer[seasonIndex];
+            }
+            
+            const frontImg = await loadFrontLayer(frontLayerSrc);
+            frontTiles = extractFrontTiles(frontImg, location.gridWidth, location.gridHeight);
+            console.log(`Loaded ${frontTiles.length} front tiles from ${frontLayerSrc}`);
+        } catch (error) {
+            console.warn(`Failed to load front layer: ${error.message}`);
+        }
+    }
+
+    // Combine front tiles with user placements and sort by Y
+    const allPlacements = [...frontTiles, ...(currentLocationData?.directPlacements || [])];
+    
+    // If no placements to draw, we're done (canvas is cleared)
+    if (!allPlacements.length) {
         console.log("No placements to draw - canvas cleared");
         return;
     }
 
-    // Draw each placement
-    const sorted = ySortPlacements(currentLocationData.directPlacements);
+    // Draw each placement (front tiles and user placements are Y-sorted together)
+    const sorted = ySortPlacements(allPlacements);
     for (const placement of sorted) {
         try {
             
@@ -295,6 +351,11 @@ async function drawAllObjects() {
         } catch (error) {
             console.error(`Failed to draw ${placement.objectKey}:`, error);
         }
+    }
+
+    // Render all fabric objects at once (preserves Y-sort order)
+    if (fabricCanvas) {
+        fabricCanvas.renderAll();
     }
 
     console.log("drawAllObjects - STATE AFTER DRAWING:", JSON.parse(JSON.stringify(currentLocationData?.directPlacements || [])));

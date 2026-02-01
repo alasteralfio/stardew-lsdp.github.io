@@ -2,7 +2,7 @@
 const appState = {
     // User looking at
     currentView: {
-        locationKey: "farm",
+        locationKey: "farm0",
     },
 
     // User is holding
@@ -22,7 +22,7 @@ const appState = {
     // All user placements structured for saving
     modifiedLocations: [
         {
-            locationKey: "farm",
+            locationKey: "farm0",
             buildings: [],
             directPlacements: [
                 {
@@ -158,7 +158,7 @@ appState.loadLayout = function(file) {
                 console.log("Layout loaded:", data);
                 
                 // Trigger re-render and physically switch to the saved location
-                const locationToSwitchTo = data.currentView?.locationKey || "farm";
+                const locationToSwitchTo = data.currentView?.locationKey || "farm0";
                 window.dispatchEvent(new CustomEvent('placementsUpdated'));
                 if (window.switchLocation) {
                     window.switchLocation(locationToSwitchTo).then(() => resolve(data)).catch(reject);
@@ -180,22 +180,22 @@ appState.loadLayout = function(file) {
 appState.createNewLayout = async function() {
     this.modifiedLocations = [
         {
-            locationKey: "farm",
+            locationKey: "farm0",
             buildings: [],
             directPlacements: []
         }
     ];
-    this.currentView = { locationKey: "farm" };
+    this.currentView = { locationKey: "farm0" };
     
     // Reset viewport for new layout
     this.viewportState.zoomLevel = 1.0;
     this.viewportState.locationsViewport = {};
     
-    console.log("New layout created, switching to farm and redrawing");
+    console.log("New layout created, switching to farm0 and redrawing");
     
     // Use switchLocation to actually redraw the canvas and ensure visual state matches appState
     if (window.switchLocation) {
-        await window.switchLocation("farm");
+        await window.switchLocation("farm0");
     } else {
         // Fallback if switchLocation not available yet
         setTimeout(() => {

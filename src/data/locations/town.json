@@ -8,6 +8,12 @@
         "assets/locations/town_2.png",
         "assets/locations/town_3.png"
     ],
+    "frontLayer": [
+        "assets/locations/town_0_front.png",
+        "assets/locations/town_1_front.png",
+        "assets/locations/town_2_front.png",
+        "assets/locations/town_3_front.png"
+    ],
     "blockedAreas": [
         {"x": 0, "y": 0, "width": 9, "height": 3},
         {"x": 10, "y": 0, "width": 3, "height": 3},

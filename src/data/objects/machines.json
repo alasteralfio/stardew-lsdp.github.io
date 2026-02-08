@@ -246,7 +246,6 @@
         "category": "machines",
         "spriteType": "atlas",
         "seasonal": true,
-        "hasSeasonalVariants": true,
         "sprite": [
             "assets/objects/machines/path_atlas_0.png",
             "assets/objects/machines/path_atlas_0.png",

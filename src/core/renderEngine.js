@@ -216,9 +216,15 @@ async function drawSingleObject(placement) {
     // Normal rendering mode: draw sprites
     // For seasonal objects, load the correct seasonal sprite file
     let spriteUrl = objectDef.sprite;
-    if (objectDef.hasSeasonalVariants && Array.isArray(objectDef.sprite)) {
-        const seasonIndex = window.appState ? window.appState.getSeasonAtlasIndex() : 0;
-        spriteUrl = objectDef.sprite[seasonIndex];
+    if (Array.isArray(objectDef.sprite)) {
+        if (objectDef.seasonal) {
+            // Seasonal object: use season index
+            const seasonIndex = window.appState ? window.appState.getSeasonAtlasIndex() : 0;
+            spriteUrl = objectDef.sprite[seasonIndex];
+        } else {
+            // Non-seasonal array: use first element
+            spriteUrl = objectDef.sprite[0];
+        }
     }
     
     const spriteImg = await loadSprite(spriteUrl);
@@ -620,7 +626,7 @@ async function init() {
     console.log("Initializing render engine...");
     try {
         await loadLocations();
-        setCurrentLocation('farm');
+        setCurrentLocation('farm0');
         initCanvases();
 
         // Initialize viewport panning

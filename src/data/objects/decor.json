@@ -8861,7 +8861,7 @@
         "placeableIndoors": true,
         "canEnter": false
     },
-    "blueberries": {
+    "decor_blueberries": {
         "name": "'Blueberries'",
         "category": "decor",
         "spriteType": "atlas",

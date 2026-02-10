@@ -2,6 +2,7 @@
     "building_farmhouse_0":{
         "name": "Farmhouse 1",
         "category": "buildings",
+        "type": "building",
         "spriteType": "single",
         "seasonal": false,
         "sprite": ["assets/objects/buildings/farmhouse_0.png"],
@@ -9,11 +10,12 @@
         "footprintHeight": 5,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 4, "y": 5 }
+        "doorPosition": { "x": 5, "y": 2 }
     },
     "building_farmhouse_1":{
         "name": "Farmhouse 2",
         "category": "buildings",
+        "type": "building",
         "spriteType": "single",
         "seasonal": false,
         "sprite": ["assets/objects/buildings/farmhouse_1.png"],
@@ -21,11 +23,12 @@
         "footprintHeight": 5,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 4, "y": 5 }
+        "doorPosition": { "x": 5, "y": 2 }
     },
     "building_farmhouse_2":{
         "name": "Farmhouse 3",
         "category": "buildings",
+        "type": "building",
         "spriteType": "single",
         "seasonal": false,
         "sprite": ["assets/objects/buildings/farmhouse_2.png"],
@@ -33,11 +36,12 @@
         "footprintHeight": 5,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 4, "y": 5 }
+        "doorPosition": { "x": 5, "y": 2 }
     },
     "building_greenhouse_0": {
         "name": "Greenhouse",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/greenhouse_0.png"],
@@ -45,11 +49,12 @@
         "footprintHeight": 4,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 3, "y": 4 }
+        "doorPosition": { "x": 3, "y": 3 }
     },
     "building_greenhouse_1": {
         "name": "Greenhouse",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/greenhouse_1.png"],
@@ -57,11 +62,12 @@
         "footprintHeight": 4,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 3, "y": 4 }
+        "doorPosition": { "x": 3, "y": 3 }
     },
     "building_barn_0": {
         "name": "Barn",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/barn_0.png"],
@@ -69,11 +75,12 @@
         "footprintHeight": 4,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 1, "y": 4 }
+        "doorPosition": { "x": 1, "y": 3 }
     },
     "building_barn_1": {
         "name": "Big Barn",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/barn_1.png"],
@@ -81,11 +88,12 @@
         "footprintHeight": 4,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 1, "y": 4 }
+        "doorPosition": { "x": 1, "y": 3 }
     },
     "building_barn_2": {
         "name": "Deluxe Barn",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/barn_2.png"],
@@ -93,11 +101,12 @@
         "footprintHeight": 4,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 1, "y": 4 }
+        "doorPosition": { "x": 1, "y": 3 }
     },
     "building_coop_0": {
         "name": "Coop",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/coop_0.png"],
@@ -105,11 +114,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 1, "y": 3 }
+        "doorPosition": { "x": 1, "y": 2 }
     },
     "building_coop_1": {
         "name": "Big Coop",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/coop_1.png"],
@@ -117,11 +127,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 1, "y": 3 }
+        "doorPosition": { "x": 1, "y": 2 }
     },
     "building_coop_2": {
         "name": "Deluxe Coop",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/coop_2.png"],
@@ -129,11 +140,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 1, "y": 3 }
+        "doorPosition": { "x": 1, "y": 2 }
     },
     "building_fishpond_0": {
         "name": "Fish Pond",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/fishpond_0.png"],
@@ -145,6 +157,7 @@
     "building_mill_0": {
         "name": "Mill",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/mill_0.png"],
@@ -156,6 +169,7 @@
     "building_shed_0": {
         "name": "Shed",
         "category": "buildings",
+        "type": "building",
         "spriteType": "single",
         "seasonal": false,
         "sprite": ["assets/objects/buildings/shed_0.png"],
@@ -163,11 +177,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 3, "y": 3 }
+        "doorPosition": { "x": 3, "y": 2 }
     },
     "building_shed_1": {
         "name": "Big Shed",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/shed_1.png"],
@@ -175,11 +190,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 3, "y": 3 }
+        "doorPosition": { "x": 3, "y": 2 }
     },
     "building_silo_0": {
         "name": "Silo",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/silo_0.png"],
@@ -191,6 +207,7 @@
     "building_slimehutch_0": {
         "name": "Slime Hutch",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/slimehutch_0.png"],
@@ -198,11 +215,12 @@
         "footprintHeight": 4,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 3, "y": 4 }
+        "doorPosition": { "x": 3, "y": 3 }
     },
     "building_stable_0": {
         "name": "Stable",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/stable_0.png"],
@@ -214,6 +232,7 @@
     "building_well_0": {
         "name": "Well",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/well_0.png"],
@@ -225,6 +244,7 @@
     "building_cabin0_2": {
         "name": "Stone Cabin 3",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "atlas",
         "sprite": ["assets/objects/buildings/cabin_2.png"],
@@ -235,11 +255,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 2, "y": 2 }
+        "doorPosition": { "x": 2, "y": 1 }
     },
     "building_cabin1_2": {
         "name": "Plank Cabin 3",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "atlas",
         "sprite": ["assets/objects/buildings/cabin_2.png"],
@@ -250,11 +271,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 2, "y": 2 }
+        "doorPosition": { "x": 2, "y": 1 }
     },
     "building_cabin2_2": {
         "name": "Log Cabin 3",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "atlas",
         "sprite": ["assets/objects/buildings/cabin_2.png"],
@@ -265,11 +287,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 2, "y": 2 }
+        "doorPosition": { "x": 2, "y": 1 }
     },
     "building_cabin3_2": {
         "name": "Neighbour Cabin 3",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "atlas",
         "sprite": ["assets/objects/buildings/cabin_2.png"],
@@ -280,11 +303,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 2, "y": 2 }
+        "doorPosition": { "x": 2, "y": 1 }
     },
     "building_cabin4_2": {
         "name": "Rustic Cabin 3",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "atlas",
         "sprite": ["assets/objects/buildings/cabin_2.png"],
@@ -295,11 +319,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 2, "y": 2 }
+        "doorPosition": { "x": 2, "y": 1 }
     },
     "building_cabin5_2": {
         "name": "Beach Cabin 3",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "atlas",
         "sprite": ["assets/objects/buildings/cabin_2.png"],
@@ -310,11 +335,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 2, "y": 2 }
+        "doorPosition": { "x": 2, "y": 1 }
     },
     "building_cabin6_2": {
         "name": "Trailer Cabin 3",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "atlas",
         "sprite": ["assets/objects/buildings/cabin_2.png"],
@@ -325,11 +351,12 @@
         "footprintHeight": 3,
         "defaultLayer": 3,
         "canEnter": true,
-        "entranceTile": { "x": 2, "y": 2 }
+        "doorPosition": { "x": 2, "y": 1 }
     },
     "building_shippingbin_0": {
         "name": "Shipping Bin",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/shippingbin_0.png"],
@@ -341,6 +368,7 @@
     "building_petbowl_0": {
         "name": "Wood Pet Bowl",
         "category": "buildings",
+        "type": "building",
         "seasonal": true,
         "spriteType": "atlas",
         "sprite": [
@@ -360,6 +388,7 @@
     "building_petbowl_1": {
         "name": "Stone Pet Bowl",
         "category": "buildings",
+        "type": "building",
         "seasonal": true,
         "spriteType": "atlas",
         "sprite": [
@@ -379,6 +408,7 @@
     "building_petbowl_2": {
         "name": "Hay Pet Bowl",
         "category": "buildings",
+        "type": "building",
         "seasonal": true,
         "spriteType": "atlas",
         "sprite": [
@@ -398,6 +428,7 @@
     "building_obelisk_0": {
         "name": "Earth Obelisk",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/obelisk_0.png"],
@@ -409,6 +440,7 @@
     "building_obelisk_1": {
         "name": "Water Obelisk",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/obelisk_1.png"],
@@ -420,6 +452,7 @@
     "building_obelisk_2": {
         "name": "Desert Obelisk",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/obelisk_2.png"],
@@ -431,6 +464,7 @@
     "building_obelisk_3": {
         "name": "Island Obelisk",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/obelisk_3.png"],
@@ -442,6 +476,7 @@
     "building_junimohut_0": {
         "name": "Junimo Hut",
         "category": "buildings",
+        "type": "building",
         "seasonal": true,
         "spriteType": "single",
         "sprite": [
@@ -458,6 +493,7 @@
     "building_goldclock_0": {
         "name": "Gold Clock",
         "category": "buildings",
+        "type": "building",
         "seasonal": false,
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/goldclock_0.png"],

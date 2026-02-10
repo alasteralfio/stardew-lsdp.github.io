@@ -2,7 +2,7 @@ import { TILE_SIZE } from "./constants.js";
 import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
 import { loadSprite, fetchObjectDefinition, loadFrontLayer } from './assetLoader.js';
 import { ySortPlacements, gridToPixel, extractFrontTiles } from './renderHelpers.js';
-import { initInteractions } from './interactionHandler.js';
+import { initInteractions, getHoveredDoorTile } from './interactionHandler.js';
 import { initViewportPanning } from './interactionHandler.js';
 import { PaletteController } from '../ui/paletteController.js';
 import { UIController } from './uiController.js';
@@ -105,7 +105,7 @@ function drawGrid() {
 
 // Draw a single object
 // Draw a single object
-async function drawSingleObject(placement) {
+async function drawSingleObject(placement, overrideCtx = null) {
     const location = getCurrentLocation();
     if (!location) return;
 
@@ -176,14 +176,15 @@ async function drawSingleObject(placement) {
         const color = colors[objectDef.category] || '#666666';
         
         // Draw on layer 3 (fabric layer) for interactive objects, layer 2 for paths
-        if (placement.layer === 2 && ctx.paths) {
-            ctx.paths.fillStyle = color;
-            ctx.paths.globalAlpha = 0.7;
-            ctx.paths.fillRect(pixelX, pixelY, footprintPixelWidth, footprintPixelHeight);
-            ctx.paths.globalAlpha = 1.0;
-            ctx.paths.strokeStyle = 'rgba(0,0,0,0.3)';
-            ctx.paths.lineWidth = 1;
-            ctx.paths.strokeRect(pixelX, pixelY, footprintPixelWidth, footprintPixelHeight);
+        if (placement.layer === 2 && (overrideCtx || ctx.paths)) {
+            const context = overrideCtx || ctx.paths;
+            context.fillStyle = color;
+            context.globalAlpha = 0.7;
+            context.fillRect(pixelX, pixelY, footprintPixelWidth, footprintPixelHeight);
+            context.globalAlpha = 1.0;
+            context.strokeStyle = 'rgba(0,0,0,0.3)';
+            context.lineWidth = 1;
+            context.strokeRect(pixelX, pixelY, footprintPixelWidth, footprintPixelHeight);
         } else if (placement.layer === 3 && fabricCanvas) {
             // Create fabric rectangle for low-render mode
             const fabricRect = new fabric.Rect({
@@ -201,14 +202,15 @@ async function drawSingleObject(placement) {
             });
             fabricCanvas.add(fabricRect);
             fabricCanvas.renderAll();
-        } else if (placement.layer === 4 && ctx.front) {
-            ctx.front.fillStyle = color;
-            ctx.front.globalAlpha = 0.7;
-            ctx.front.fillRect(pixelX, pixelY, footprintPixelWidth, footprintPixelHeight);
-            ctx.front.globalAlpha = 1.0;
-            ctx.front.strokeStyle = 'rgba(0,0,0,0.3)';
-            ctx.front.lineWidth = 1;
-            ctx.front.strokeRect(pixelX, pixelY, footprintPixelWidth, footprintPixelHeight);
+        } else if (placement.layer === 4 && (overrideCtx || ctx.front)) {
+            const context = overrideCtx || ctx.front;
+            context.fillStyle = color;
+            context.globalAlpha = 0.7;
+            context.fillRect(pixelX, pixelY, footprintPixelWidth, footprintPixelHeight);
+            context.globalAlpha = 1.0;
+            context.strokeStyle = 'rgba(0,0,0,0.3)';
+            context.lineWidth = 1;
+            context.strokeRect(pixelX, pixelY, footprintPixelWidth, footprintPixelHeight);
         }
         return;
     }
@@ -242,10 +244,11 @@ async function drawSingleObject(placement) {
     // Use atlas coordinates directly - they're the same across all seasons
     const atlasCoord = objectDef.atlasCoord;
 
-    if (placement.layer === 2 && ctx.paths) {
+    if (placement.layer === 2 && (overrideCtx || ctx.paths)) {
+        const context = overrideCtx || ctx.paths;
         console.log(`Drawing path on layer 2`);
         if (objectDef.spriteType === 'atlas') {
-            ctx.paths.drawImage(
+            context.drawImage(
                 spriteImg,
                 atlasCoord.x, atlasCoord.y,
                 objectDef.tileWidth, objectDef.tileHeight,
@@ -253,7 +256,7 @@ async function drawSingleObject(placement) {
                 spritePixelWidth, spritePixelHeight
             );
         } else {
-            ctx.paths.drawImage(spriteImg, spritePixelX, spritePixelY);
+            context.drawImage(spriteImg, spritePixelX, spritePixelY);
         }
     } else if (placement.layer === 3 && fabricCanvas) {
         console.log(`Drawing on layer 3 (Fabric) - creating image at [${spritePixelX}, ${spritePixelY}]`);
@@ -287,10 +290,11 @@ async function drawSingleObject(placement) {
         });
         fabricCanvas.add(fabricImg);
         console.log(`Added sprite image to Fabric canvas, total objects: ${fabricCanvas.getObjects().length}`);
-    } else if (placement.layer === 4 && ctx.front) {
+    } else if (placement.layer === 4 && (overrideCtx || ctx.front)) {
         console.log(`Drawing on layer 4`);
+        const context = overrideCtx || ctx.front;
         if (objectDef.spriteType === 'atlas') {
-            ctx.front.drawImage(
+            context.drawImage(
                 spriteImg,
                 atlasCoord.x, atlasCoord.y,
                 objectDef.tileWidth, objectDef.tileHeight,
@@ -298,7 +302,7 @@ async function drawSingleObject(placement) {
                 spritePixelWidth, spritePixelHeight
             );
         } else {
-            ctx.front.drawImage(spriteImg, spritePixelX, spritePixelY);
+            context.drawImage(spriteImg, spritePixelX, spritePixelY);
         }
     } else {
         console.warn(`No context for layer ${placement.layer}`, {layer: placement.layer, fabricCanvas: !!fabricCanvas, ctxFront: !!ctx.front, ctxPaths: !!ctx.paths});
@@ -314,9 +318,15 @@ async function drawAllObjects() {
     const currentLocationData = window.appState.modifiedLocations.find(
         loc => loc.locationKey === window.appState.currentView.locationKey
     );
+    // Create offscreen canvas for paths (Double Buffering)
+    const offscreenPaths = document.createElement('canvas');
+    offscreenPaths.width = location.pixelWidth;
+    offscreenPaths.height = location.pixelHeight;
+    const offCtx = offscreenPaths.getContext('2d');
     
-    // Clear previous drawings regardless of whether there are placements
-    if (ctx.paths) ctx.paths.clearRect(0, 0, location.pixelWidth, location.pixelHeight);
+    // NOTE: We do NOT clear ctx.paths here anymore. 
+    // We only clear it at the very end when we copy the buffer.
+    
     if (fabricCanvas) fabricCanvas.clear();
     if (ctx.front) ctx.front.clearRect(0, 0, location.pixelWidth, location.pixelHeight); 
 
@@ -352,11 +362,17 @@ async function drawAllObjects() {
     const sorted = ySortPlacements(allPlacements);
     for (const placement of sorted) {
         try {
-            
-            await drawSingleObject(placement);
+            // Use offscreen context for paths to prevent flickering
+            await drawSingleObject(placement, offCtx);
         } catch (error) {
             console.error(`Failed to draw ${placement.objectKey}:`, error);
         }
+    }
+
+    // Double Buffering: Copy the finished offscreen canvas to the visible screen in one go
+    if (ctx.paths) {
+        ctx.paths.clearRect(0, 0, location.pixelWidth, location.pixelHeight);
+        ctx.paths.drawImage(offscreenPaths, 0, 0);
     }
 
     // Render all fabric objects at once (preserves Y-sort order)
@@ -440,6 +456,20 @@ function updateOverlay() {
         }
 
         overlayCtx.stroke();
+    }
+    
+    // Draw door highlight for enterable buildings
+    const hoveredDoor = getHoveredDoorTile();
+    if (hoveredDoor) {
+        const doorPixelX = hoveredDoor.gridX * TILE_SIZE;
+        const doorPixelY = hoveredDoor.gridY * TILE_SIZE;
+        
+        overlayCtx.fillStyle = 'rgba(255, 215, 0, 0.4)'; // Gold highlight
+        overlayCtx.strokeStyle = 'rgba(255, 215, 0, 0.9)';
+        overlayCtx.lineWidth = 3;
+        
+        overlayCtx.fillRect(doorPixelX, doorPixelY, TILE_SIZE, TILE_SIZE);
+        overlayCtx.strokeRect(doorPixelX, doorPixelY, TILE_SIZE, TILE_SIZE);
     }
     
     drawPreviewHighlights(window.appState);

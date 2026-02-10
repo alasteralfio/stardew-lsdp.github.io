@@ -93,3 +93,26 @@ export async function fetchObjectDefinition(objectKey) {
     }
     return def;
 }
+
+// Helper: Check if an object is a building
+export function isBuilding(objectKey) {
+    // Synchronous check - assumes objectsData is already loaded
+    if (!objectsData) {
+        console.warn('Objects data not loaded yet - cannot check if building');
+        return false;
+    }
+    
+    const def = objectsData[objectKey];
+    return def && def.type === 'building';
+}
+
+// Helper: Check if a building can be entered
+export function canEnterBuilding(objectKey) {
+    if (!objectsData) {
+        console.warn('Objects data not loaded yet - cannot check if enterable');
+        return false;
+    }
+    
+    const def = objectsData[objectKey];
+    return def && def.type === 'building' && def.canEnter === true && def.doorPosition;
+}

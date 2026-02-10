@@ -2,7 +2,7 @@
 import { TILE_SIZE } from './constants.js';
 import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
 import { placeObjectAtGrid, removeObjectAtGrid, isValidPlacement, deleteObject, findObjectAtPosition } from './placementLogic.js';
-import { fetchObjectDefinition } from './assetLoader.js';
+import { fetchObjectDefinition, canEnterBuilding } from './assetLoader.js';
 
 let isDragging = false;
 let currentPlacement = null;
@@ -10,8 +10,11 @@ let dragOffsetX = 0;
 let dragOffsetY = 0;
 let originalDragPosition = { gridX: 0, gridY: 0 }; // Store original position for snap-back
 let zoomThrottleTimeout = null; // Throttle zoom events
+let hoveredDoorTile = null; // Track door tile being hovered for highlight
+let spaceKeyPressed = false; // Track space key for panning
 
 // Gets grid coordinates from mouse pixel position, accounting for zoom level.
+// Note: Pan is already accounted for by getBoundingClientRect() returning the transformed box
 function getGridCoordinates(pixelX, pixelY, appState) {
     const zoomLevel = appState ? appState.getZoomLevel() : 1.0;
     const gridX = Math.floor(pixelX / TILE_SIZE / zoomLevel);
@@ -45,9 +48,35 @@ async function findPlacementAtGrid(gridX, gridY, appState) {
 }
 
 async function handleMouseDown(event, canvas, appState) {
-    // Ignore non-left-click events (middle click for panning, right click for context menu)
+    // Ignore non-left-click events (right-click handled separately)
     if (event.button !== 0) {
         console.log(`Ignoring mouse button ${event.button} (not left-click)`);
+        return;
+    }
+    
+    // Prevent interaction if panning (Space key held)
+    if (spaceKeyPressed) return;
+
+    // Get mouse position and grid coordinates
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    const { gridX, gridY } = getGridCoordinates(mouseX, mouseY, appState);
+    
+    // SHIFT + LEFT-CLICK = Delete object
+    if (event.shiftKey) {
+        const placement = await findObjectAtPosition(appState, mouseX, mouseY, window.fabricCanvas);
+        if (placement) {
+            console.log('Shift+click delete:', placement.objectKey);
+            const success = await deleteObject(appState, placement.id, window.fabricCanvas);
+            if (success) {
+                console.log('Object deleted successfully');
+            } else {
+                console.warn('Failed to delete object');
+            }
+        } else {
+            console.log('Shift+clicked empty space - no object to delete');
+        }
         return;
     }
 
@@ -83,13 +112,7 @@ async function handleMouseDown(event, canvas, appState) {
         canvas.style.cursor = appState.selectedItem ? 'crosshair' : 'default';
     }
     
-    // Get mouse position relative to canvas
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-    
-    // Convert to grid coordinates (accounting for zoom)
-    const { gridX, gridY } = getGridCoordinates(mouseX, mouseY, appState);
+    // Grid coordinates already calculated above
     console.log(`Mouse down at grid: [${gridX}, ${gridY}]`);
     
     // Priority: If we have a selected item (intent to place), place it instead of dragging
@@ -111,12 +134,11 @@ async function handleMouseDown(event, canvas, appState) {
             // Calculate offset in canvas coordinates
             // This is where the cursor is relative to the tile in the canvas drawing space
             const zoomLevel = appState.getZoomLevel();
-            const panX = window.viewportPanState?.panX || 0;
-            const panY = window.viewportPanState?.panY || 0;
             
             // Convert current mouse position to canvas coordinates
-            const canvasMouseX = (mouseX - panX) / zoomLevel;
-            const canvasMouseY = (mouseY - panY) / zoomLevel;
+            // Note: Pan is already accounted for by getBoundingClientRect()
+            const canvasMouseX = mouseX / zoomLevel;
+            const canvasMouseY = mouseY / zoomLevel;
             
             // Tile position in canvas coordinates
             const tilePixelX = placement.gridX * TILE_SIZE;
@@ -179,11 +201,10 @@ function handleMouseMove(event, canvas, appState) {
     if (!isDragging) return;
     
     // Convert current mouse to canvas coordinates
+    // Note: Pan is already accounted for by getBoundingClientRect()
     const zoomLevel = appState.getZoomLevel();
-    const panX = window.viewportPanState?.panX || 0;
-    const panY = window.viewportPanState?.panY || 0;
-    const canvasMouseX = (mouseX - panX) / zoomLevel;
-    const canvasMouseY = (mouseY - panY) / zoomLevel;
+    const canvasMouseX = mouseX / zoomLevel;
+    const canvasMouseY = mouseY / zoomLevel;
     
     // Calculate new tile position in canvas space
     // dragOffsetX/Y are in canvas coordinates
@@ -217,12 +238,11 @@ function handleMouseUp(event, appState) {
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
-    // Calculate FINAL snapped grid position, accounting for zoom and pan
+    // Calculate FINAL snapped grid position, accounting for zoom
+    // Note: Pan is already accounted for by getBoundingClientRect()
     const zoomLevel = appState.getZoomLevel();
-    const panX = window.viewportPanState?.panX || 0;
-    const panY = window.viewportPanState?.panY || 0;
-    const canvasMouseX = (mouseX - panX) / zoomLevel;
-    const canvasMouseY = (mouseY - panY) / zoomLevel;
+    const canvasMouseX = mouseX / zoomLevel;
+    const canvasMouseY = mouseY / zoomLevel;
     const finalTilePixelX = canvasMouseX - dragOffsetX;
     const finalTilePixelY = canvasMouseY - dragOffsetY;
     const finalGridX = Math.floor(finalTilePixelX / TILE_SIZE);
@@ -261,12 +281,24 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
         return;
     }
 
+    // Store fabricCanvas reference for deletion/warp handlers
+    window.fabricCanvas = fabricCanvas;
+
     pathsCanvas.addEventListener('mousedown', (event) => {
         handleMouseDown(event, pathsCanvas, appState);
     });
 
     pathsCanvas.addEventListener('mouseleave', () => {
         appState.deactivatePreview();
+        hoveredDoorTile = null; // Clear door highlight on leave
+        
+        // Reset status bar and cursor when leaving canvas
+        const statusElement = document.getElementById('selected-object');
+        if (statusElement && !appState.selectedItem) {
+            statusElement.textContent = 'Selected: None';
+        }
+        pathsCanvas.style.cursor = 'default';
+        lastHoveredPlacement = null;
     });
 
     pathsCanvas.addEventListener('mouseenter', () => {
@@ -279,32 +311,51 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
         }
     });
 
-    // Right-click for deletion
+    // Right-click for building entry and warp actions
     pathsCanvas.addEventListener('contextmenu', async (event) => {
         event.preventDefault();
         
         const rect = pathsCanvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
+        const { gridX, gridY } = getGridCoordinates(mouseX, mouseY, appState);
         
         // Find object at position
         const placement = await findObjectAtPosition(appState, mouseX, mouseY, fabricCanvas);
         
         if (placement) {
-            console.log('Right-clicked object:', placement.objectKey);
-            // Delete the object
-            const success = await deleteObject(appState, placement.id, fabricCanvas);
-            if (success) {
-                console.log('Object deleted successfully');
+            const def = await fetchObjectDefinition(placement.objectKey);
+            
+            // Check if it's a warp tile
+            if (def && def.type === 'warp') {
+                console.log('Right-clicked warp tile - triggering warp');
+                // TODO: Implement warp logic in Check 7-9
+                return;
+            }
+            
+            // Check if it's an enterable building
+            if (canEnterBuilding(placement.objectKey)) {
+                // Check door proximity (within 2 tiles of door position)
+                const doorPos = def.doorPosition;
+                const absoluteDoorX = placement.gridX + doorPos.x;
+                const absoluteDoorY = placement.gridY + doorPos.y;
+                const distance = Math.abs(gridX - absoluteDoorX) + Math.abs(gridY - absoluteDoorY);
+                
+                if (distance <= 2) {
+                    console.log(`Entering building: ${def.name} (${placement.objectKey})`);
+                    // TODO: Implement enterBuilding() in Check 7-8
+                } else {
+                    console.log(`Clicked building ${def.name} but too far from door (distance: ${distance})`);
+                }
             } else {
-                console.warn('Failed to delete object');
+                console.log('Right-clicked non-enterable object:', placement.objectKey);
             }
         } else {
-            console.log('Right-clicked empty space');
+            console.log('Right-clicked empty space - no action');
         }
     });
 
-    // Hover detection for visual feedback
+    // Hover detection for visual feedback and door highlighting
     let lastHoveredPlacement = null;
     let lastHoverCheckTime = 0;
     const HOVER_CHECK_THROTTLE = 50; // ms between hover checks
@@ -321,15 +372,47 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
         const rect = pathsCanvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
+        const { gridX, gridY } = getGridCoordinates(mouseX, mouseY, appState);
         
         const placement = await findObjectAtPosition(appState, mouseX, mouseY, fabricCanvas);
+        
+        // Check for door hover (for enterable buildings)
+        const previousHoveredDoorTile = hoveredDoorTile;
+        hoveredDoorTile = null;
+        if (placement && canEnterBuilding(placement.objectKey)) {
+            const def = await fetchObjectDefinition(placement.objectKey);
+            if (def && def.doorPosition) {
+                const doorPos = def.doorPosition;
+                const absoluteDoorX = placement.gridX + doorPos.x;
+                const absoluteDoorY = placement.gridY + doorPos.y;
+                const distance = Math.abs(gridX - absoluteDoorX) + Math.abs(gridY - absoluteDoorY);
+                
+                if (distance <= 2) {
+                    hoveredDoorTile = { gridX: absoluteDoorX, gridY: absoluteDoorY };
+                }
+            }
+        }
+        
+        // Trigger render if door highlight state changed
+        if ((previousHoveredDoorTile && !hoveredDoorTile) || 
+            (!previousHoveredDoorTile && hoveredDoorTile) ||
+            (previousHoveredDoorTile && hoveredDoorTile && 
+             (previousHoveredDoorTile.gridX !== hoveredDoorTile.gridX || 
+              previousHoveredDoorTile.gridY !== hoveredDoorTile.gridY))) {
+            // No need to dispatch event - overlay updates continuously via requestAnimationFrame
+        }
         
         // Update status bar hint only if hovering over object and not already selecting
         const statusElement = document.getElementById('selected-object');
         if (placement && statusElement && !appState.selectedItem) {
             const objectDef = await fetchObjectDefinition(placement.objectKey);
             const displayName = objectDef ? objectDef.name : placement.objectKey;
-            statusElement.textContent = `${displayName} - Right-click to delete`;
+            
+            if (canEnterBuilding(placement.objectKey)) {
+                statusElement.textContent = `${displayName} - Right-click near door to enter, Shift+click to delete`;
+            } else {
+                statusElement.textContent = `${displayName} - Shift+click to delete`;
+            }
             pathsCanvas.style.cursor = 'pointer';
             lastHoveredPlacement = placement;
         } else if (!placement && lastHoveredPlacement && !appState.selectedItem) {
@@ -339,17 +422,9 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
             }
             pathsCanvas.style.cursor = 'default';
             lastHoveredPlacement = null;
+            hoveredDoorTile = null;
+            window.dispatchEvent(new CustomEvent('placementsUpdated'));
         }
-    });
-
-    pathsCanvas.addEventListener('mouseleave', () => {
-        // Reset status bar and cursor when leaving canvas
-        const statusElement = document.getElementById('selected-object');
-        if (statusElement && !appState.selectedItem) {
-            statusElement.textContent = 'Selected: None';
-        }
-        pathsCanvas.style.cursor = 'default';
-        lastHoveredPlacement = null;
     });
 
     // ESC key to deselect
@@ -376,8 +451,10 @@ export function initViewportPanning(viewportElement) {
     let isPanning = false;
     let lastX = 0;
     let lastY = 0;
+    // spaceKeyPressed is now at module level
     let panX = 0;
     let panY = 0;
+    // let spaceKeyPressed = false; // logic using module-level variable
     
     const updateCanvasTransforms = () => {
         const canvases = viewportElement.querySelectorAll('canvas');
@@ -390,6 +467,23 @@ export function initViewportPanning(viewportElement) {
             canvas.style.transformOrigin = 'center center';
         });
     };
+    
+    // Track space key for panning
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !spaceKeyPressed) {
+            spaceKeyPressed = true;
+            viewportElement.style.cursor = 'grab';
+            e.preventDefault(); // Prevent page scroll
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+            spaceKeyPressed = false;
+            isPanning = false;
+            viewportElement.style.cursor = 'default';
+        }
+    });
     
     // Mouse wheel zoom handler (throttled to 50ms)
     viewportElement.addEventListener('wheel', (e) => {
@@ -428,8 +522,8 @@ export function initViewportPanning(viewportElement) {
         
         updateCanvasTransforms();
         
-        // Trigger re-render
-        window.dispatchEvent(new CustomEvent('placementsUpdated'));
+        // Remove placementsUpdated dispatch to prevent unnecessary re-renders during zoom
+        // window.dispatchEvent(new CustomEvent('placementsUpdated'));
         
         // Throttle next zoom for 50ms
         zoomThrottleTimeout = setTimeout(() => {
@@ -437,8 +531,9 @@ export function initViewportPanning(viewportElement) {
         }, 50);
     }, { passive: false });
     
+    // SPACE + MOUSE = Pan viewport
     viewportElement.addEventListener('mousedown', (e) => {
-        if (e.button === 1) { // Middle mouse button
+        if (e.button === 0 && spaceKeyPressed) { // Left-click while holding space
             isPanning = true;
             lastX = e.clientX;
             lastY = e.clientY;
@@ -463,21 +558,28 @@ export function initViewportPanning(viewportElement) {
     });
     
     document.addEventListener('mouseup', (e) => {
-        isPanning = false;
-        viewportElement.style.cursor = 'grab';
+        if (isPanning) {
+            isPanning = false;
+            viewportElement.style.cursor = spaceKeyPressed ? 'grab' : 'default';
+        }
     });
     
     document.addEventListener('mouseleave', () => {
         isPanning = false;
-        viewportElement.style.cursor = 'grab';
+        viewportElement.style.cursor = spaceKeyPressed ? 'grab' : 'default';
     });
     
     // Initialize cursor
-    viewportElement.style.cursor = 'grab';
+    viewportElement.style.cursor = 'default';
     
     // Expose pan values to window for drag calculations
     window.viewportPanState = {
         get panX() { return panX; },
         get panY() { return panY; }
     };
+}
+
+// Export getter for hovered door tile (for render highlighting)
+export function getHoveredDoorTile() {
+    return hoveredDoorTile;
 }

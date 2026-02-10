@@ -28,5 +28,14 @@
         {"x": 11, "y": 23, "width": 5, "height": 1}
     ],
     "canPlaceWalls": false,
-    "indoors": true
+    "indoors": true,
+    "fixedObjects": [
+        {
+            "objectKey": "exit_warp",
+            "gridX": 3,
+            "gridY": 3,
+            "type": "warp",
+            "targetLocation": "dynamic"
+        }
+    ]
 }

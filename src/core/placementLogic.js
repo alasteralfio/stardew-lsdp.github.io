@@ -226,7 +226,15 @@ export async function findObjectAtPosition(appState, pixelX, pixelY, fabricCanva
 
     if (!currentLocation) return null;
 
-    // Check all placements to find which one contains this pixel position using footprint bounds
+    // Account for zoom to convert screen coordinates to canvas coordinates
+    // Note: Pan is already accounted for by getBoundingClientRect() in the caller
+    const zoomLevel = appState ? appState.getZoomLevel() : 1.0;
+    
+    // Convert to grid coordinates
+    const gridX = Math.floor(pixelX / 16 / zoomLevel);
+    const gridY = Math.floor(pixelY / 16 / zoomLevel);
+
+    // Check all placements to find which one contains this grid position using footprint bounds
     for (let i = currentLocation.directPlacements.length - 1; i >= 0; i--) {
         const placement = currentLocation.directPlacements[i];
         
@@ -236,10 +244,6 @@ export async function findObjectAtPosition(appState, pixelX, pixelY, fabricCanva
 
         const footprintWidth = objectDef.footprintWidth || 1;
         const footprintHeight = objectDef.footprintHeight || 1;
-
-        // Convert pixel position to grid position
-        const gridX = Math.floor(pixelX / 16);
-        const gridY = Math.floor(pixelY / 16);
 
         // Check if grid position is within footprint bounds
         if (gridX >= placement.gridX && 

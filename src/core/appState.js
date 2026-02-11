@@ -1,9 +1,15 @@
+import { createLocationInstance } from './locationManager.js';
+
 // The single source of truth for application state
 const appState = {
     // User looking at
     currentView: {
         locationKey: "farm0",
     },
+
+    // Navigation history for building entry/exit
+    navigationStack: [], // Stack of previous locations to return to
+    exitTargets: {},     // Map of instanceId -> targetLocationKey for exits
 
     // User is holding
     selectedItem: null, // Format: { objectKey: 'path_stone_walkway_floor', layer: 2 }
@@ -113,7 +119,9 @@ appState.saveCurrentLayout = function() {
         version: "1.0",
         modifiedLocations: this.modifiedLocations,
         currentView: this.currentView,
-        viewportState: this.viewportState  // Include zoom level and per-location scroll positions
+        viewportState: this.viewportState,  // Include zoom level and per-location scroll positions
+        navigationStack: this.navigationStack, // Include navigation history
+        exitTargets: this.exitTargets // Include dynamic exit targets
     };
     
     const dataStr = JSON.stringify(layoutData, null, 2);
@@ -143,6 +151,81 @@ appState.loadLayout = function(file) {
                 // Update appState with loaded data
                 this.modifiedLocations = data.modifiedLocations;
                 this.currentView = data.currentView || this.currentView;
+                this.navigationStack = data.navigationStack || [];
+                this.exitTargets = data.exitTargets || {};
+
+                // Reconstruct location instances (interiors) for rendering
+                // Iterate through all modified locations to find instances that need to be created in locationManager
+                if (this.modifiedLocations && Array.isArray(this.modifiedLocations)) {
+                    this.modifiedLocations.forEach(loc => {
+                        if (loc.locationKey.endsWith('_interior')) {
+                            // Try to reconstruct base location
+                            try {
+                                // Format: {placementId}_{parentLocation}_interior
+                                // Issue: placementId contains underscores (plc_timestamp_count) and parentLocation might too.
+                                // We iterate known locations to find the correct split.
+                                const interiorSuffix = '_interior';
+                                const contentBeforeSuffix = loc.locationKey.substring(0, loc.locationKey.length - interiorSuffix.length);
+                                
+                                let parentLoc = null;
+                                let parentKey = null;
+                                let placementId = null;
+
+                                // Find a location key that matches the end of contentBeforeSuffix
+                                for (const potentialParent of this.modifiedLocations) {
+                                    if (potentialParent.locationKey === loc.locationKey) continue;
+                                    
+                                    const pKey = potentialParent.locationKey;
+                                    // Check if contentBeforeSuffix ends with "_"+pKey (e.g. "..._farm0")
+                                    if (contentBeforeSuffix.endsWith('_' + pKey)) {
+                                        parentKey = pKey;
+                                        parentLoc = potentialParent;
+                                        // placementId is everything before "_"+pKey
+                                        placementId = contentBeforeSuffix.substring(0, contentBeforeSuffix.length - (pKey.length + 1));
+                                        break; 
+                                    }
+                                }
+
+                                if (parentLoc && placementId) {
+                                    // Find placement object to know building type
+                                    // Check both directPlacements and buildings array
+                                    const placement = (parentLoc.directPlacements || []).find(p => String(p.id) === String(placementId)) || 
+                                                      (parentLoc.buildings || []).find(p => String(p.id) === String(placementId));
+                                    
+                                    if (placement) {
+                                        // Determine base key from object key
+                                        // e.g. building_barn_0 -> barn0
+                                        let baseKey = placement.objectKey.replace('building_', '');
+                                        if (baseKey === 'greenhouse_0') baseKey = 'greenhouse';
+                                        else {
+                                            baseKey = baseKey.replace('_', '');
+                                        }
+                                        
+                                        console.log(`Reconstructing instance ${loc.locationKey} (Base: ${baseKey})`);
+                                        createLocationInstance(baseKey, loc.locationKey);
+                                    } else {
+                                        console.warn(`Could not find parent building ${placementId} in ${parentKey} for reconstruction`);
+                                        // Fallback: Try to guess generic types
+                                        if (loc.locationKey.includes('shed')) {
+                                            console.log("Fallback: reconstructing as Shed");
+                                            createLocationInstance("shed0", loc.locationKey);
+                                        } else if (loc.locationKey.includes('barn')) {
+                                            console.log("Fallback: reconstructing as Barn");
+                                            createLocationInstance("barn0", loc.locationKey);
+                                        } else if (loc.locationKey.includes('coop')) {
+                                            console.log("Fallback: reconstructing as Coop");
+                                            createLocationInstance("coop0", loc.locationKey);
+                                        }
+                                    }
+                                } else {
+                                    console.warn(`Parent location lookup failed for ${loc.locationKey}`);
+                                }
+                            } catch (e) {
+                                console.warn(`Failed to reconstruct instance for ${loc.locationKey}`, e);
+                            }
+                        }
+                    });
+                }
                 
                 // Restore viewport state if it exists (backwards compatible)
                 if (data.viewportState) {

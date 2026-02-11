@@ -235,6 +235,7 @@ export async function findObjectAtPosition(appState, pixelX, pixelY, fabricCanva
     const gridY = Math.floor(pixelY / 16 / zoomLevel);
 
     // Check all placements to find which one contains this grid position using footprint bounds
+    // First check user-placed objects
     for (let i = currentLocation.directPlacements.length - 1; i >= 0; i--) {
         const placement = currentLocation.directPlacements[i];
         
@@ -251,6 +252,28 @@ export async function findObjectAtPosition(appState, pixelX, pixelY, fabricCanva
             gridY >= placement.gridY && 
             gridY < placement.gridY + footprintHeight) {
             return placement;
+        }
+    }
+
+    // Then check fixed objects (system objects like warps)
+    // Use the static location data since appState doesn't track fixedObjects
+    const staticLocation = getCurrentLocation(); 
+    
+    if (staticLocation && staticLocation.fixedObjects) {
+        for (const placement of staticLocation.fixedObjects) {
+            // Get object definition
+            const objectDef = await fetchObjectDefinition(placement.objectKey);
+            if (!objectDef) continue;
+            
+             const footprintWidth = objectDef.footprintWidth || 1;
+            const footprintHeight = objectDef.footprintHeight || 1;
+
+            if (gridX >= placement.gridX && 
+                gridX < placement.gridX + footprintWidth &&
+                gridY >= placement.gridY && 
+                gridY < placement.gridY + footprintHeight) {
+                return placement;
+            }
         }
     }
 

@@ -85,6 +85,18 @@ export async function loadObjects() {
 
 //Gets object definition by key
 export async function fetchObjectDefinition(objectKey) {
+    // Special handling for system objects
+    if (objectKey === 'exit_warp') {
+        return {
+            id: 'exit_warp',
+            name: 'Exit',
+            type: 'warp',
+            width: 1,
+            height: 1,
+            visible: false
+        };
+    }
+
     const data = await loadObjects();
     const def = data[objectKey];
     if (!def) {

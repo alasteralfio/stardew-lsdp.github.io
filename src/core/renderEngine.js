@@ -2,7 +2,7 @@ import { TILE_SIZE } from "./constants.js";
 import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
 import { loadSprite, fetchObjectDefinition, loadFrontLayer } from './assetLoader.js';
 import { ySortPlacements, gridToPixel, extractFrontTiles } from './renderHelpers.js';
-import { initInteractions, getHoveredDoorTile } from './interactionHandler.js';
+import { initInteractions, getHoveredDoorTile, getHoveredWarpTile } from './interactionHandler.js';
 import { initViewportPanning } from './interactionHandler.js';
 import { PaletteController } from '../ui/paletteController.js';
 import { UIController } from './uiController.js';
@@ -79,9 +79,24 @@ async function drawBackground() {
 
     terrainCtx.clearRect(0, 0, location.pixelWidth, location.pixelHeight);
     
+    // Fill with black background to hide artifacts in unused grid areas
+    terrainCtx.fillStyle = 'black';
+    terrainCtx.fillRect(0, 0, location.pixelWidth, location.pixelHeight);
+    
     // Use the seasonal variant of the map background
-    const seasonIndex = window.appState ? window.appState.getSeasonAtlasIndex() : 0;
+    let seasonIndex = window.appState ? window.appState.getSeasonAtlasIndex() : 0;
+    
+    // Fallback for non-seasonal locations (like interiors) that only have 1 sprite
+    if (seasonIndex >= location.sprite.length) {
+        seasonIndex = 0;
+    }
+    
     const bgImageSrc = location.sprite[seasonIndex];
+    
+    if (!bgImageSrc) {
+        console.error("Background image source is undefined for location:", location.name);
+        return;
+    }
     
     const bgImage = new Image();
     bgImage.src = bgImageSrc;
@@ -120,6 +135,7 @@ async function drawSingleObject(placement, overrideCtx = null) {
         const tilePixelY = tileCoord.y * 16;
         
         // Create fabric.Image for the front tile (non-interactive, pass-through)
+        // Draw on fabricCanvas to ensure correct Z-sorting with other objects
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = 16;
         tempCanvas.height = 16;
@@ -137,10 +153,11 @@ async function drawSingleObject(placement, overrideCtx = null) {
             scaleY: 1,
             selectable: false,
             evented: false, // Pass-through: don't intercept interactions
-            hasControls: false
+            hasControls: false,
+            // Optimization for many tiles
+            objectCaching: false 
         });
         fabricCanvas.add(fabricImg);
-        console.log(`Added front tile at [${placement.gridX}, ${placement.gridY}]`);
         return;
     }
 
@@ -328,6 +345,9 @@ async function drawAllObjects() {
     // We only clear it at the very end when we copy the buffer.
     
     if (fabricCanvas) fabricCanvas.clear();
+    
+    // Only clear front canvas (layer-4), don't clear generic ctx.front if it doesn't exist?
+    // Actually ctx.front IS layer-4.
     if (ctx.front) ctx.front.clearRect(0, 0, location.pixelWidth, location.pixelHeight); 
 
     // Load front tiles from location if available (with seasonal variant)
@@ -337,7 +357,11 @@ async function drawAllObjects() {
             // Get the seasonal variant of the front layer
             let frontLayerSrc = location.frontLayer;
             if (Array.isArray(location.frontLayer)) {
-                const seasonIndex = window.appState ? window.appState.getSeasonAtlasIndex() : 0;
+                let seasonIndex = window.appState ? window.appState.getSeasonAtlasIndex() : 0;
+                // Fallback for non-seasonal locations
+                if (seasonIndex >= location.frontLayer.length) {
+                    seasonIndex = 0;
+                }
                 frontLayerSrc = location.frontLayer[seasonIndex];
             }
             
@@ -350,19 +374,44 @@ async function drawAllObjects() {
     }
 
     // Combine front tiles with user placements and sort by Y
-    const allPlacements = [...frontTiles, ...(currentLocationData?.directPlacements || [])];
+    // RENDER FIX: Filter out placements that are somehow null or undefined to prevent crashes
+    const userPlacements = (currentLocationData?.directPlacements || []).filter(p => p);
     
-    // If no placements to draw, we're done (canvas is cleared)
+    // Sort all placements together for correct depth (Z-index)
+    // This includes both map Front Layer tiles and user objects (buildings, furniture)
+    const allPlacements = [...frontTiles, ...userPlacements];
+    
+    // If no placements to draw, we still need to clear/update
     if (!allPlacements.length) {
-        console.log("No placements to draw - canvas cleared");
+        // Double Buffering flush even if empty
+         if (ctx.paths) {
+            ctx.paths.clearRect(0, 0, location.pixelWidth, location.pixelHeight);
+            ctx.paths.drawImage(offscreenPaths, 0, 0);
+        }
         return;
     }
 
     // Draw each placement (front tiles and user placements are Y-sorted together)
     const sorted = ySortPlacements(allPlacements);
+    
+    // RENDER FIX: Draw front tiles on layer-3 (Objects) instead of layer-4 (Front) 
+    // IF we want them to sort with objects.
+    // However, the `drawSingleObject` function currently sends `isFrontTile` to `ctx.front`.
+    // We need to decide:
+    // 1. If "Front Layer" means "Walls you can walk behind", it MUST be on the same canvas as objects and sorted.
+    // 2. If "Front Layer" means "Tree tops always above", it stays on layer-4.
+    // Stardew interior walls are case 1. Map tree tops are case 2. 
+    // Given the bug report "Front doesnt render over top other objects the way it does in farm",
+    // it implies incorrect sorting. 
+    // IF I moved front tiles to layer-4 (on top of everything), they should be covering objects.
+    // IF they are covering objects they shouldn't (like player in front of wall), that's a bug.
+    // If they are NOT covering objects they SHOULD (like being behind a taller object?), that's also a bug.
+    //
+    // Reverting front tiles to render on the SAME canvas context or adhering to Y-sort.
+    // But `drawSingleObject` separates them. 
+    
     for (const placement of sorted) {
         try {
-            // Use offscreen context for paths to prevent flickering
             await drawSingleObject(placement, offCtx);
         } catch (error) {
             console.error(`Failed to draw ${placement.objectKey}:`, error);
@@ -379,8 +428,6 @@ async function drawAllObjects() {
     if (fabricCanvas) {
         fabricCanvas.renderAll();
     }
-
-    console.log("drawAllObjects - STATE AFTER DRAWING:", JSON.parse(JSON.stringify(currentLocationData?.directPlacements || [])));
 }
 
 function setupCanvasRestore() {
@@ -470,6 +517,28 @@ function updateOverlay() {
         
         overlayCtx.fillRect(doorPixelX, doorPixelY, TILE_SIZE, TILE_SIZE);
         overlayCtx.strokeRect(doorPixelX, doorPixelY, TILE_SIZE, TILE_SIZE);
+    }
+
+    // Draw warp highlight (Orange glow for warps like exit tiles)
+    const hoveredWarp = getHoveredWarpTile();
+    if (hoveredWarp) {
+        // Use width/height from state or default to 1x1
+        const w = hoveredWarp.width || 1;
+        const h = hoveredWarp.height || 1;
+        const warpPixelX = hoveredWarp.gridX * TILE_SIZE;
+        const warpPixelY = hoveredWarp.gridY * TILE_SIZE;
+        
+        overlayCtx.fillStyle = 'rgba(255, 165, 0, 0.4)'; // Orange highlight
+        overlayCtx.strokeStyle = 'rgba(255, 140, 0, 0.9)';
+        overlayCtx.lineWidth = 3;
+        
+        // Make it pulse slightly
+        const time = Date.now() / 500;
+        const alpha = 0.4 + Math.sin(time) * 0.1;
+        overlayCtx.fillStyle = `rgba(255, 165, 0, ${alpha})`;
+        
+        overlayCtx.fillRect(warpPixelX, warpPixelY, w * TILE_SIZE, h * TILE_SIZE);
+        overlayCtx.strokeRect(warpPixelX, warpPixelY, w * TILE_SIZE, h * TILE_SIZE);
     }
     
     drawPreviewHighlights(window.appState);

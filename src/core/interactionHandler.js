@@ -1,6 +1,6 @@
 // src/core/interactionHandler.js
 import { TILE_SIZE } from './constants.js';
-import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
+import { loadLocations, setCurrentLocation, getCurrentLocation, createLocationInstance, enterLocation, exitLocation } from './locationManager.js';
 import { placeObjectAtGrid, removeObjectAtGrid, isValidPlacement, deleteObject, findObjectAtPosition } from './placementLogic.js';
 import { fetchObjectDefinition, canEnterBuilding } from './assetLoader.js';
 
@@ -11,6 +11,7 @@ let dragOffsetY = 0;
 let originalDragPosition = { gridX: 0, gridY: 0 }; // Store original position for snap-back
 let zoomThrottleTimeout = null; // Throttle zoom events
 let hoveredDoorTile = null; // Track door tile being hovered for highlight
+let hoveredWarpTile = null; // Track warp tile being hovered
 let spaceKeyPressed = false; // Track space key for panning
 
 // Gets grid coordinates from mouse pixel position, accounting for zoom level.
@@ -329,7 +330,17 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
             // Check if it's a warp tile
             if (def && def.type === 'warp') {
                 console.log('Right-clicked warp tile - triggering warp');
-                // TODO: Implement warp logic in Check 7-9
+                // Check 8 & 9: Handle warp exit
+                // Check both definition and placement for targetLocation
+                const targetLocation = placement.targetLocation || def.targetLocation;
+
+                if (targetLocation === 'dynamic') {
+                    // Assume dynamic means "return to previous location" for now
+                    // In future, exitTargets[currentLocationKey] tells us where to go
+                    exitLocation(appState);
+                } else if (targetLocation) {
+                    enterLocation(targetLocation, appState);
+                }
                 return;
             }
             
@@ -343,7 +354,36 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
                 
                 if (distance <= 2) {
                     console.log(`Entering building: ${def.name} (${placement.objectKey})`);
-                    // TODO: Implement enterBuilding() in Check 7-8
+                    
+                    // Determine base location key from object key
+                    // e.g. building_barn_0 -> barn0, building_shed_1 -> shed1
+                    let baseLocationKey = placement.objectKey.replace('building_', '');
+                    
+                    // Handle greenhouse special case
+                    if (baseLocationKey === 'greenhouse_0') {
+                        baseLocationKey = 'greenhouse';
+                    } else {
+                        // Remove underscore for standard building types (barn_0 -> barn0)
+                        baseLocationKey = baseLocationKey.replace('_', '');
+                    }
+                    
+                    // Create unique instance ID: specific placement + parent location
+                    const instanceId = `${placement.id}_${appState.currentView.locationKey}_interior`;
+                    
+                    // Creates the instance if it doesn't exist
+                    const locationInstance = createLocationInstance(baseLocationKey, instanceId);
+                    
+                    if (locationInstance) {
+                        // Enter the building instance
+                        enterLocation(instanceId, appState);
+                        
+                        // Set the exit target for this instance to return to current location
+                        if (!appState.exitTargets) appState.exitTargets = {};
+                        appState.exitTargets[instanceId] = appState.currentView.locationKey;
+                    } else {
+                        console.error(`Failed to create/load interior for ${baseLocationKey}`);
+                    }
+
                 } else {
                     console.log(`Clicked building ${def.name} but too far from door (distance: ${distance})`);
                 }
@@ -379,9 +419,15 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
         // Check for door hover (for enterable buildings)
         const previousHoveredDoorTile = hoveredDoorTile;
         hoveredDoorTile = null;
-        if (placement && canEnterBuilding(placement.objectKey)) {
-            const def = await fetchObjectDefinition(placement.objectKey);
-            if (def && def.doorPosition) {
+        
+        // Check for warp hover
+        const previousHoveredWarpTile = hoveredWarpTile;
+        hoveredWarpTile = null;
+
+        if (placement) {
+             const def = await fetchObjectDefinition(placement.objectKey);
+             
+             if (canEnterBuilding(placement.objectKey) && def && def.doorPosition) {
                 const doorPos = def.doorPosition;
                 const absoluteDoorX = placement.gridX + doorPos.x;
                 const absoluteDoorY = placement.gridY + doorPos.y;
@@ -390,15 +436,17 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
                 if (distance <= 2) {
                     hoveredDoorTile = { gridX: absoluteDoorX, gridY: absoluteDoorY };
                 }
+            } else if (def && def.type === 'warp') {
+                // If the object itself is a warp (like the exit tile), highlight it
+                // Logic already selects the whole object, but let's highlight the specific tile 
+                // to match the door style if it's a multi-tile object (unlikely for warps but safe)
+                hoveredWarpTile = { gridX: placement.gridX, gridY: placement.gridY, width: def.footprintWidth || 1, height: def.footprintHeight || 1 };
             }
         }
         
-        // Trigger render if door highlight state changed
-        if ((previousHoveredDoorTile && !hoveredDoorTile) || 
-            (!previousHoveredDoorTile && hoveredDoorTile) ||
-            (previousHoveredDoorTile && hoveredDoorTile && 
-             (previousHoveredDoorTile.gridX !== hoveredDoorTile.gridX || 
-              previousHoveredDoorTile.gridY !== hoveredDoorTile.gridY))) {
+        // Trigger render if highlight state changed
+        if ((previousHoveredDoorTile !== hoveredDoorTile) || 
+            (previousHoveredWarpTile !== hoveredWarpTile)) {
             // No need to dispatch event - overlay updates continuously via requestAnimationFrame
         }
         
@@ -410,6 +458,8 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
             
             if (canEnterBuilding(placement.objectKey)) {
                 statusElement.textContent = `${displayName} - Right-click near door to enter, Shift+click to delete`;
+            } else if (objectDef && objectDef.type === 'warp') {
+                statusElement.textContent = `${displayName} - Right-click to exit/enter`;
             } else {
                 statusElement.textContent = `${displayName} - Shift+click to delete`;
             }
@@ -423,6 +473,7 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
             pathsCanvas.style.cursor = 'default';
             lastHoveredPlacement = null;
             hoveredDoorTile = null;
+            hoveredWarpTile = null;
             window.dispatchEvent(new CustomEvent('placementsUpdated'));
         }
     });
@@ -582,4 +633,9 @@ export function initViewportPanning(viewportElement) {
 // Export getter for hovered door tile (for render highlighting)
 export function getHoveredDoorTile() {
     return hoveredDoorTile;
+}
+
+// Export getter for hovered warp tile (for render highlighting)
+export function getHoveredWarpTile() {
+    return hoveredWarpTile;
 }

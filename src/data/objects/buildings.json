@@ -46,10 +46,10 @@
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/greenhouse_0.png"],
         "footprintWidth": 7,
-        "footprintHeight": 4,
+        "footprintHeight": 6,
         "defaultLayer": 3,
         "canEnter": true,
-        "doorPosition": { "x": 3, "y": 3 }
+        "doorPosition": { "x": 3, "y": 5 }
     },
     "building_greenhouse_1": {
         "name": "Greenhouse",
@@ -59,10 +59,10 @@
         "spriteType": "single",
         "sprite": ["assets/objects/buildings/greenhouse_1.png"],
         "footprintWidth": 7,
-        "footprintHeight": 4,
+        "footprintHeight": 6,
         "defaultLayer": 3,
         "canEnter": true,
-        "doorPosition": { "x": 3, "y": 3 }
+        "doorPosition": { "x": 3, "y": 5 }
     },
     "building_barn_0": {
         "name": "Barn",

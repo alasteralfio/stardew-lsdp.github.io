@@ -23,8 +23,8 @@
     "fixedObjects": [
         {
             "objectKey": "exit_warp",
-            "gridX": 3,
-            "gridY": 3,
+            "gridX": 8,
+            "gridY": 12,
             "type": "warp",
             "targetLocation": "dynamic"
         }

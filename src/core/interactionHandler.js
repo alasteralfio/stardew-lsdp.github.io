@@ -359,9 +359,14 @@ export function initInteractions(pathsCanvas, appState, fabricCanvas) {
                     // e.g. building_barn_0 -> barn0, building_shed_1 -> shed1
                     let baseLocationKey = placement.objectKey.replace('building_', '');
                     
-                    // Handle greenhouse special case
-                    if (baseLocationKey === 'greenhouse_0') {
+                    // Handle special cases
+                    if (baseLocationKey === 'greenhouse_0' || baseLocationKey === 'greenhouse_1') {
                         baseLocationKey = 'greenhouse';
+                    } else if (baseLocationKey.startsWith('cabin') && baseLocationKey.endsWith('_2')) {
+                        // All cabin variants use farmhouse2
+                        baseLocationKey = 'farmhouse2';
+                    } else if (baseLocationKey === 'slimehutch_0') {
+                        baseLocationKey = 'slimehutch';
                     } else {
                         // Remove underscore for standard building types (barn_0 -> barn0)
                         baseLocationKey = baseLocationKey.replace('_', '');

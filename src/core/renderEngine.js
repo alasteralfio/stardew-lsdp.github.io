@@ -1,5 +1,5 @@
 import { TILE_SIZE } from "./constants.js";
-import { loadLocations, setCurrentLocation, getCurrentLocation } from './locationManager.js';
+import { loadLocations, setCurrentLocation, getCurrentLocation, getLocation } from './locationManager.js';
 import { loadSprite, fetchObjectDefinition, loadFrontLayer } from './assetLoader.js';
 import { ySortPlacements, gridToPixel, extractFrontTiles } from './renderHelpers.js';
 import { initInteractions, getHoveredDoorTile, getHoveredWarpTile } from './interactionHandler.js';
@@ -111,6 +111,163 @@ async function drawBackground() {
             resolve();
         };
     });
+}
+
+// Render painted floors and wallpaper
+async function drawPaintedAreas() {
+    const location = getCurrentLocation();
+    if (!location) {
+        console.log('[drawPaintedAreas] No location');
+        return;
+    }
+    
+    const currentLocationKey = window.appState.currentView.locationKey;
+    const locationData = window.appState.modifiedLocations.find(loc => loc.locationKey === currentLocationKey);
+    
+    if (!locationData) {
+        console.log('[drawPaintedAreas] No location data');
+        return;
+    }
+    
+    console.log('[drawPaintedAreas] Rendering painted areas for', currentLocationKey);
+    
+    const wallsCtx = ctx.walls;
+    if (!wallsCtx) return;
+    
+    // Clear the walls canvas
+    wallsCtx.clearRect(0, 0, location.pixelWidth, location.pixelHeight);
+    
+    // Render flooring first (bottom layer)
+    if (locationData.customFlooring && location.flooringAreas) {
+        for (const paint of locationData.customFlooring) {
+            const area = location.flooringAreas[paint.areaIndex];
+            if (!area) continue;
+            
+            await renderFlooringArea(area, paint.objectKey, wallsCtx);
+        }
+    }
+    
+    // Render wallpaper on top
+    if (locationData.customWallpaper && location.wallpaperAreas) {
+        for (const paint of locationData.customWallpaper) {
+            const area = location.wallpaperAreas[paint.areaIndex];
+            if (!area) continue;
+            
+            await renderWallpaperArea(area, paint.objectKey, wallsCtx);
+        }
+    }
+    
+    // Render mid-layer if it exists
+    if (location.midLayer) {
+        const midLayerSrc = Array.isArray(location.midLayer) ? location.midLayer[0] : location.midLayer;
+        const midImage = await loadFrontLayer(midLayerSrc);
+        
+        if (midImage) {
+            wallsCtx.drawImage(midImage, 0, 0, location.pixelWidth, location.pixelHeight);
+        }
+    }
+}
+
+// Render flooring tiles for a specific area
+async function renderFlooringArea(area, flooringKey, ctx) {
+    const flooringDef = await fetchObjectDefinition(flooringKey);
+    if (!flooringDef) return;
+    
+    // Load flooring sprite
+    const floorImg = await loadSprite(flooringDef.sprite[0]);
+    
+    // Flooring uses 32x32 tiles (2x2 game tiles)
+    const tilePixelSize = 32; // 2x2 tiles at 16px each
+    
+    // Tile the flooring across the area
+    for (let tileY = area.y; tileY < area.y + area.height; tileY += 2) {
+        for (let tileX = area.x; tileX < area.x + area.width; tileX += 2) {
+            // Convert to pixel coordinates
+            const pixelX = tileX * TILE_SIZE;
+            const pixelY = tileY * TILE_SIZE;
+            
+            // Don't draw tiles that exceed the area bounds
+            if (tileX + 2 > area.x + area.width || tileY + 2 > area.y + area.height) {
+                // Partial tile - clip it
+                const clipWidth = Math.min(2, area.x + area.width - tileX) * TILE_SIZE;
+                const clipHeight = Math.min(2, area.y + area.height - tileY) * TILE_SIZE;
+                
+                ctx.drawImage(
+                    floorImg,
+                    flooringDef.atlasCoord.x,
+                    flooringDef.atlasCoord.y,
+                    clipWidth,
+                    clipHeight,
+                    pixelX,
+                    pixelY,
+                    clipWidth,
+                    clipHeight
+                );
+            } else {
+                // Full tile
+                ctx.drawImage(
+                    floorImg,
+                    flooringDef.atlasCoord.x,
+                    flooringDef.atlasCoord.y,
+                    tilePixelSize,
+                    tilePixelSize,
+                    pixelX,
+                    pixelY,
+                    tilePixelSize,
+                    tilePixelSize
+                );
+            }
+        }
+    }
+}
+
+// Render wallpaper for a specific area (vertical 1x3 tiles)
+async function renderWallpaperArea(area, wallpaperKey, ctx) {
+    const wallpaperDef = await fetchObjectDefinition(wallpaperKey);
+    if (!wallpaperDef) return;
+    
+    // Load wallpaper sprite
+    const wallpaperImg = await loadSprite(wallpaperDef.sprite[0]);
+    
+    // Wallpaper is 16x48 (1x3 tiles): top, middle, bottom sections
+    const tileWidth = 16;
+    const topHeight = 16;
+    const midHeight = 16;
+    const bottomHeight = 16;
+    
+    // Tile horizontally across area
+    for (let tileX = area.x; tileX < area.x + area.width; tileX++) {
+        // For each column, draw top, then middle (repeated), then bottom
+        for (let rowIndex = 0; rowIndex < area.height; rowIndex++) {
+            const tileY = area.y + rowIndex;
+            const pixelX = tileX * TILE_SIZE;
+            const pixelY = tileY * TILE_SIZE;
+            
+            let sourceY;
+            if (rowIndex === 0) {
+                // Top tile
+                sourceY = wallpaperDef.atlasCoord.y;
+            } else if (rowIndex === area.height - 1) {
+                // Bottom tile
+                sourceY = wallpaperDef.atlasCoord.y + topHeight + midHeight;
+            } else {
+                // Middle tile
+                sourceY = wallpaperDef.atlasCoord.y + topHeight;
+            }
+            
+            ctx.drawImage(
+                wallpaperImg,
+                wallpaperDef.atlasCoord.x,
+                sourceY,
+                tileWidth,
+                16,
+                pixelX,
+                pixelY,
+                tileWidth,
+                16
+            );
+        }
+    }
 }
 
 //Draw grid overlay
@@ -435,6 +592,7 @@ function setupCanvasRestore() {
     window.addEventListener('focus', async () => {
         console.log('Window focused - restoring canvas');
         await drawBackground();
+        await drawPaintedAreas();
         drawGrid();
         await drawAllObjects();
     });
@@ -443,6 +601,7 @@ function setupCanvasRestore() {
         if (document.visibilityState === 'visible') {
             console.log('Tab visible - restoring canvas');
             await drawBackground();
+            await drawPaintedAreas();
             drawGrid();
             await drawAllObjects();
         }
@@ -454,6 +613,7 @@ function setupCanvasRestore() {
         // You might need to reinitialize canvases if size changed
         // For now, just redraw
         await drawBackground();
+        await drawPaintedAreas();
         drawGrid();
         await drawAllObjects();
     });
@@ -621,6 +781,7 @@ async function queuedFullRedraw() {
     isDrawing = true;
     try {
         await drawBackground();
+        await drawPaintedAreas();
         drawGrid();
         await drawAllObjects();
     } catch (error) {
@@ -646,6 +807,12 @@ async function switchLocation(newLocationKey) {
     try {
         // Step 0: Ensure the location exists in modifiedLocations
         window.appState.ensureLocationExists(newLocationKey);
+        
+        // Step 0.5: Initialize default painting for interiors with paintable areas
+        const locationDef = getLocation(newLocationKey);
+        if (locationDef && (locationDef.wallpaperAreas || locationDef.flooringAreas)) {
+            window.appState.initializeDefaultPainting(newLocationKey, locationDef);
+        }
         
         // Step 1: Save viewport state of current location
         const currentLocationKey = window.appState.currentView.locationKey;
@@ -709,6 +876,7 @@ async function switchLocation(newLocationKey) {
         
         // Step 6: Redraw everything
         await drawBackground();
+        await drawPaintedAreas();
         drawGrid();
         await queuedDrawAllObjects();
         
@@ -744,10 +912,12 @@ async function init() {
         // Listen for placement updates to trigger re-render
         window.addEventListener('placementsUpdated', async () => {
             console.log('Re-rendering due to placement update...');
+            await drawPaintedAreas(); // Redraw painted wallpaper/flooring
             await queuedDrawAllObjects();
         });
 
         await drawBackground();
+        await drawPaintedAreas();
         drawGrid();
         await queuedDrawAllObjects();
         

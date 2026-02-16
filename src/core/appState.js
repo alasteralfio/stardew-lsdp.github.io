@@ -12,7 +12,10 @@ const appState = {
     exitTargets: {},     // Map of instanceId -> targetLocationKey for exits
 
     // User is holding
-    selectedItem: null, // Format: { objectKey: 'path_stone_walkway_floor', layer: 2 }
+    selectedItem: null, // Format: { objectKey: 'path_stone_walkway_floor', layer: 2, isPaintMode: false }
+
+    // Paint mode state for wallpaper/flooring
+    isPaintMode: false, // True when wallpaper/flooring is selected
 
     // Preview state for placement preview system
     previewState: {
@@ -108,9 +111,14 @@ appState.isPreviewActive = function() {
 // Deselect current item and clear preview
 appState.deselect = function() {
     this.selectedItem = null;
+    this.isPaintMode = false;
     this.deactivatePreview();
     const canvas = document.getElementById('paths-canvas');
     if (canvas) canvas.style.cursor = 'default';
+    
+    // Clear status bar
+    const statusBar = document.getElementById('selected-object');
+    if (statusBar) statusBar.textContent = 'Selected: None';
 };
 
 // Save current layout to JSON file
@@ -312,13 +320,48 @@ appState.getZoomLevel = function() {
 
 // Ensure a location exists in modifiedLocations, initialize if not
 appState.ensureLocationExists = function(locationKey) {
-    if (!this.modifiedLocations.find(loc => loc.locationKey === locationKey)) {
-        this.modifiedLocations.push({
+    let locationData = this.modifiedLocations.find(loc => loc.locationKey === locationKey);
+    if (!locationData) {
+        locationData = {
             locationKey: locationKey,
             buildings: [],
-            directPlacements: []
-        });
+            directPlacements: [],
+            customWallpaper: [],
+            customFlooring: []
+        };
+        this.modifiedLocations.push(locationData);
         console.log(`[appState] Created entry for location: ${locationKey}`);
+    }
+    
+    // Ensure painting arrays exist (for backwards compatibility with old saves)
+    if (!locationData.customWallpaper) locationData.customWallpaper = [];
+    if (!locationData.customFlooring) locationData.customFlooring = [];
+    
+    return locationData;
+};
+
+// Initialize default painting for a location's paintable areas
+appState.initializeDefaultPainting = function(locationKey, locationDefinition) {
+    const locationData = this.ensureLocationExists(locationKey);
+    
+    // Initialize default wallpaper for all wallpaper areas
+    if (locationDefinition.wallpaperAreas && locationData.customWallpaper.length === 0) {
+        locationDefinition.wallpaperAreas.forEach((area, index) => {
+            locationData.customWallpaper.push({
+                areaIndex: index,
+                objectKey: "wallpaper_001" // Default wallpaper
+            });
+        });
+    }
+    
+    // Initialize default flooring for all flooring areas
+    if (locationDefinition.flooringAreas && locationData.customFlooring.length === 0) {
+        locationDefinition.flooringAreas.forEach((area, index) => {
+            locationData.customFlooring.push({
+                areaIndex: index,
+                objectKey: "flooring_01" // Default flooring
+            });
+        });
     }
 };
 

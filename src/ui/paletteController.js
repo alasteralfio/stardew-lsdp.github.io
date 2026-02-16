@@ -339,9 +339,12 @@ class PaletteController {
         }
         
         // Update appState
+        const isPaintMode = obj.category === 'wallpaper';
+        this.appState.isPaintMode = isPaintMode;
         this.appState.selectedItem = {
             objectKey: obj.objectKey,
-            layer: obj.defaultLayer
+            layer: obj.defaultLayer,
+            isPaintMode: isPaintMode
         };
 
         this.appState.activatePreview(
@@ -350,9 +353,14 @@ class PaletteController {
             obj.footprintHeight || 1
         );
         
-        // Update status bar
+        // Update status bar with paint mode indicator
         const statusBar = document.getElementById('selected-object');
-        statusBar.textContent = `Selected: ${obj.name}`;
+        if (isPaintMode) {
+            const paintType = obj.name.startsWith('Wallpaper') ? 'Wallpaper' : 'Flooring';
+            statusBar.textContent = `Paint Mode: ${obj.name} (Click area to paint)`;
+        } else {
+            statusBar.textContent = `Selected: ${obj.name}`;
+        }
         
         console.log('Selected object:', obj.objectKey, obj.name);
     }
@@ -415,9 +423,14 @@ class PaletteController {
                     imageUrl = obj.icon;
                 }
                 atlasCoord = obj.iconCoord || { x: 0, y: 0 };
-                // Icons are typically 16x16
-                tileWidth = 16;
-                tileHeight = 16;
+                // Icons are typically 16x16, but wallpaper/flooring use 32x32
+                if (obj.category === 'wallpaper') {
+                    tileWidth = 32;
+                    tileHeight = 32;
+                } else {
+                    tileWidth = 16;
+                    tileHeight = 16;
+                }
             } else {
                 // Use regular sprite
                 if (Array.isArray(obj.sprite)) {

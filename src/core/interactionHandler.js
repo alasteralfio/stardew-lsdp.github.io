@@ -48,6 +48,71 @@ async function findPlacementAtGrid(gridX, gridY, appState) {
     return null;
 }
 
+// Handles painting wallpaper/flooring when clicking in paint mode
+async function handlePaintClick(appState, gridX, gridY) {
+    const currentLocationKey = appState.currentView.locationKey;
+    const locationData = appState.modifiedLocations.find(loc => loc.locationKey === currentLocationKey);
+    
+    if (!locationData) {
+        console.error('No location data found for painting');
+        return;
+    }
+    
+    // Get location definition to access paintable areas
+    const location = getCurrentLocation();
+    if (!location) return;
+    
+    const selectedObjectKey = appState.selectedItem.objectKey;
+    const isFloor = selectedObjectKey.startsWith('flooring_');
+    const isWall = selectedObjectKey.startsWith('wallpaper_');
+    
+    // Determine which areas to check based on what's selected
+    const areasToCheck = isFloor ? location.flooringAreas : (isWall ? location.wallpaperAreas : []);
+    
+    if (!areasToCheck || areasToCheck.length === 0) {
+        console.log('No paintable areas in this location');
+        return;
+    }
+    
+    // Find which area was clicked
+    let clickedAreaIndex = -1;
+    for (let i = 0; i < areasToCheck.length; i++) {
+        const area = areasToCheck[i];
+        if (gridX >= area.x && gridX < area.x + area.width &&
+            gridY >= area.y && gridY < area.y + area.height) {
+            clickedAreaIndex = i;
+            break;
+        }
+    }
+    
+    if (clickedAreaIndex === -1) {
+        console.log('Clicked outside paintable areas');
+        return;
+    }
+    
+    // Paint the area
+    const paintArray = isFloor ? locationData.customFlooring : locationData.customWallpaper;
+    
+    // Check if this area already has paint applied
+    const existingPaint = paintArray.find(p => p.areaIndex === clickedAreaIndex);
+    
+    if (existingPaint) {
+        // Update existing paint
+        existingPaint.objectKey = selectedObjectKey;
+    } else {
+        // Add new paint
+        paintArray.push({
+            areaIndex: clickedAreaIndex,
+            objectKey: selectedObjectKey
+        });
+    }
+    
+    console.log(`Painted area ${clickedAreaIndex} with ${selectedObjectKey}`);
+    
+    // Trigger redraw
+    window.dispatchEvent(new CustomEvent('placementsUpdated'));
+}
+
 async function handleMouseDown(event, canvas, appState) {
     // Ignore non-left-click events (right-click handled separately)
     if (event.button !== 0) {
@@ -115,6 +180,12 @@ async function handleMouseDown(event, canvas, appState) {
     
     // Grid coordinates already calculated above
     console.log(`Mouse down at grid: [${gridX}, ${gridY}]`);
+    
+    // Priority: Check for paint mode (wallpaper/flooring)
+    if (appState.isPaintMode && appState.selectedItem) {
+        await handlePaintClick(appState, gridX, gridY);
+        return; // Exit early, don't do regular placement
+    }
     
     // Priority: If we have a selected item (intent to place), place it instead of dragging
     if (appState.selectedItem) {
